@@ -3,3 +3,7 @@ dist
 *.local
 .vite
 *.tsbuildinfo
+
+# WASM build artifacts (built locally / in CI via `npm run build:wasm`)
+src/core/generated/
+wasm/build/

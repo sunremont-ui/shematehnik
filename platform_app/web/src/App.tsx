@@ -6,6 +6,7 @@ import { ModuleTree } from "./components/ModuleTree.tsx";
 import { Workspace } from "./components/Workspace.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
 import { AboutDialog, ShortcutsDialog } from "./components/Dialogs.tsx";
+import { initCore } from "./core/ucpCore.ts";
 
 export function App() {
   const [projectName, setProjectName] = useState("Untitled Project");
@@ -19,6 +20,9 @@ export function App() {
 
   // тема → data-attribute на <html>
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+
+  // загрузка вычислительного ядра (WASM, иначе JS-фолбэк)
+  useEffect(() => { void initCore(); }, []);
 
   // статус с авто-очисткой через 5с (как onStatusMessage в Qt)
   const setStatus = useCallback((msg: string) => {

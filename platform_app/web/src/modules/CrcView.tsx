@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
+import { crc, useCoreBackend } from "../core/ucpCore.ts";
 
 const ALGOS = {
   "CRC-8":       { width: 8,  poly: 0x07,       init: 0x00,       refin: false, refout: false, xorout: 0x00 },
@@ -10,31 +11,10 @@ const ALGOS = {
   "CRC-32":      { width: 32, poly: 0x04C11DB7, init: 0xFFFFFFFF, refin: true,  refout: true,  xorout: 0xFFFFFFFF },
 } as const;
 
-function reflect(v: number, width: number): number {
-  let r = 0;
-  for (let i = 0; i < width; i++) { r = (r << 1) | (v & 1); v >>>= 1; }
-  return r >>> 0;
-}
-
-function crc(bytes: number[], a: typeof ALGOS[keyof typeof ALGOS]): number {
-  const topbit = 1 << (a.width - 1);
-  const mask = a.width === 32 ? 0xFFFFFFFF : (1 << a.width) - 1;
-  let reg = a.init >>> 0;
-  for (let b of bytes) {
-    if (a.refin) b = reflect(b, 8);
-    reg = (reg ^ (b << (a.width - 8))) >>> 0;
-    for (let i = 0; i < 8; i++) {
-      reg = (reg & topbit ? ((reg << 1) ^ a.poly) : (reg << 1)) >>> 0;
-      reg &= mask;
-    }
-  }
-  if (a.refout) reg = reflect(reg, a.width);
-  return ((reg ^ a.xorout) & mask) >>> 0;
-}
-
 export function CrcView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["crc"];
+  const backend = useCoreBackend();
   const [text, setText] = useState("123456789");
   const [mode, setMode] = useState<"ascii" | "hex">("ascii");
   const [algo, setAlgo] = useState<keyof typeof ALGOS>("CRC-32");
@@ -45,15 +25,27 @@ export function CrcView() {
   }, [text, mode]);
 
   const a = ALGOS[algo];
-  const result = useMemo(() => crc(bytes, a), [bytes, algo]);
+  const result = useMemo(
+    () => crc(Uint8Array.from(bytes), {
+      poly: a.poly, init: a.init, xorOut: a.xorout,
+      refIn: a.refin, refOut: a.refout, bits: a.width,
+    }),
+    [bytes, algo],
+  );
   const hex = result.toString(16).toUpperCase().padStart(a.width / 4, "0");
 
   return (
     <div>
       <PanelHead mod={mod} right={
-        <button className="btn primary" onClick={() => { navigator.clipboard?.writeText("0x" + hex); ucp.setStatus(`Copied 0x${hex}`); }}>
-          Copy 0x{hex}
-        </button>
+        <>
+          <span className="chip" title="вычислительное ядро">
+            <span className={`dot ${backend === "wasm" ? "ok" : backend === "js" ? "warn" : ""}`} />
+            engine: {backend}
+          </span>
+          <button className="btn primary" onClick={() => { navigator.clipboard?.writeText("0x" + hex); ucp.setStatus(`Copied 0x${hex}`); }}>
+            Copy 0x{hex}
+          </button>
+        </>
       } />
       <div className="grid cols2">
         <div className="card" style={{ display: "grid", gap: 12 }}>

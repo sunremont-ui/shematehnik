@@ -2,36 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-
-// Дискретная симуляция ПИД + объект первого порядка с задержкой.
-function simulate(kp: number, ki: number, kd: number, setpoint: number, steps = 200) {
-  const dt = 0.1, tau = 2.0, gain = 1.0;
-  let y = 0, integral = 0, prevErr = 0, u = 0;
-  const out: number[] = [];
-  for (let i = 0; i < steps; i++) {
-    const err = setpoint - y;
-    integral += err * dt;
-    const deriv = (err - prevErr) / dt;
-    u = kp * err + ki * integral + kd * deriv;
-    u = Math.max(-200, Math.min(200, u));
-    prevErr = err;
-    // plant: tau*y' + y = gain*u
-    y += (dt / tau) * (gain * u - y);
-    out.push(y);
-  }
-  return out;
-}
+import { pidStep, useCoreBackend } from "../core/ucpCore.ts";
 
 export function PidTunerView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["pid"];
+  const backend = useCoreBackend();
   const [kp, setKp] = useState(2.0);
   const [ki, setKi] = useState(0.5);
   const [kd, setKd] = useState(0.1);
   const setpoint = 100;
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const data = useMemo(() => simulate(kp, ki, kd, setpoint), [kp, ki, kd]);
+  // Симуляция переходного процесса считается ядром (WASM ↔ JS-фолбэк).
+  const data = useMemo(() => pidStep(kp, ki, kd, setpoint, 200), [kp, ki, kd]);
 
   const metrics = useMemo(() => {
     const peak = Math.max(...data);
@@ -84,9 +68,15 @@ export function PidTunerView() {
   return (
     <div>
       <PanelHead mod={mod} right={
-        <button className="btn primary" onClick={() => ucp.setStatus(`PID exported: Kp=${kp} Ki=${ki} Kd=${kd}`)}>
-          Export coefficients
-        </button>
+        <>
+          <span className="chip" title="вычислительное ядро">
+            <span className={`dot ${backend === "wasm" ? "ok" : backend === "js" ? "warn" : ""}`} />
+            engine: {backend}
+          </span>
+          <button className="btn primary" onClick={() => ucp.setStatus(`PID exported: Kp=${kp} Ki=${ki} Kd=${kd}`)}>
+            Export coefficients
+          </button>
+        </>
       } />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 14 }}>
         <div className="card" style={{ padding: 12 }}>
