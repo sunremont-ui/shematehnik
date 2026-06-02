@@ -1,0 +1,341 @@
+/* ============================================================
+   UCP web theme — mirrors the Qt6 GitHub-dark palette
+   (see app/main_window.cpp applyTheme("dark"))
+   ============================================================ */
+:root {
+  --bg:            #0d1117;
+  --panel:         #161b22;
+  --panel-alt:     #1c2128;
+  --base:          #0d1117;
+  --raised:        #21262d;
+  --border:        #30363d;
+  --text:          #e6edf3;
+  --muted:         #8b949e;
+  --accent:        #388bfd;
+  --accent-soft:   #58a6ff;
+  --danger:        #f85149;
+  --shadow:        #010409;
+  --radius:        6px;
+  --mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+:root[data-theme="light"] {
+  --bg:        #f6f8fa;
+  --panel:     #ffffff;
+  --panel-alt: #ffffff;
+  --base:      #ffffff;
+  --raised:    #f0f2f5;
+  --border:    #d0d7de;
+  --text:      #1f2328;
+  --muted:     #57606a;
+  --accent:    #0969da;
+  --accent-soft: #0969da;
+  --shadow:    #d0d7de;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ---------- App shell layout ---------- */
+.app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+
+.app-body {
+  display: grid;
+  grid-template-columns: var(--tree-w, 260px) 1fr;
+  min-height: 0;
+}
+
+.app-body.tree-hidden { grid-template-columns: 0 1fr; }
+
+/* ---------- Menu bar ---------- */
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 6px;
+  height: 34px;
+  user-select: none;
+}
+.menubar .brand {
+  font-weight: 600;
+  color: var(--accent-soft);
+  padding: 0 12px 0 6px;
+  letter-spacing: .2px;
+}
+.menu { position: relative; }
+.menu > button {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.menu > button:hover, .menu.open > button { background: var(--raised); }
+.menu-pop {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px;
+  z-index: 50;
+  box-shadow: 0 8px 24px var(--shadow);
+}
+.menu-pop button {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.menu-pop button:hover { background: var(--accent); color: #fff; }
+.menu-pop button .sc { color: var(--muted); font-size: 11px; }
+.menu-pop button:hover .sc { color: #e8f0ff; }
+.menu-pop .sep { height: 1px; background: var(--border); margin: 4px 2px; }
+.menu-pop.scroll { max-height: 420px; overflow-y: auto; }
+
+/* ---------- Module tree ---------- */
+.tree {
+  background: var(--base);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  min-height: 0;
+}
+.tree-head {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  padding: 10px 12px 6px;
+}
+.tree-node { user-select: none; }
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-left: 2px solid transparent;
+}
+.tree-row:hover { background: var(--raised); }
+.tree-row.active {
+  background: var(--raised);
+  border-left-color: var(--accent);
+}
+.tree-row .twisty {
+  width: 12px;
+  color: var(--muted);
+  font-size: 10px;
+  flex: none;
+  text-align: center;
+}
+.tree-row .ico { width: 16px; text-align: center; flex: none; }
+.tree-row .lbl { overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Status bar ---------- */
+.statusbar {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 10px;
+  gap: 16px;
+}
+.statusbar .msg { flex: 1; color: var(--text); }
+.statusbar .perm { color: var(--muted); }
+
+/* ---------- Workspace ---------- */
+.workspace {
+  overflow: auto;
+  min-height: 0;
+  padding: 18px 22px;
+}
+.ws-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+.ws-empty .big { font-size: 48px; opacity: .5; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 4px;
+}
+.panel-head h1 { font-size: 20px; margin: 0; }
+.panel-head .ico { font-size: 22px; }
+.panel-sub { color: var(--muted); margin: 0 0 18px; max-width: 70ch; }
+
+/* ---------- Generic UI atoms ---------- */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.grid { display: grid; gap: 14px; }
+.grid.cols2 { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.grid.cols3 { grid-template-columns: repeat(3, minmax(0,1fr)); }
+
+.btn {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn:hover { background: var(--border); border-color: var(--muted); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { filter: brightness(1.08); }
+
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+input, select, textarea {
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+textarea { font-family: var(--mono); resize: vertical; }
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.chip .dot.ok { background: #3fb950; }
+.chip .dot.warn { background: #d29922; }
+
+.kbd {
+  font-family: var(--mono);
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+table.tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.tbl th, table.tbl td { border: 1px solid var(--border); padding: 5px 8px; text-align: left; }
+table.tbl th { background: var(--panel); color: var(--muted); }
+table.tbl code { color: var(--accent-soft); }
+
+pre.code {
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  margin: 0;
+}
+
+.muted { color: var(--muted); }
+.tag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--raised);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* dialogs */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(1,4,9,.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 20px 60px var(--shadow);
+}
+.dialog header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.dialog .body { padding: 18px; }
+.dialog footer {
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
