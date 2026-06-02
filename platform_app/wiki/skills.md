@@ -1,0 +1,88 @@
+# Claude Code Skills — UCP Project
+
+Available slash commands when working in this repository.
+
+## UCP Project — Build & Test
+
+| Команда | Назначение |
+|---------|-----------|
+| `/ucp-build` | Сборка проекта через CMake + Ninja (GCC MinGW64) |
+| `/ucp-test` | Запуск всех трёх test-суитов с `ctest --output-on-failure` |
+| `/ucp-roadmap` | Дашборд прогресса по roadmap: что сделано, что следующее |
+| `/ucp-web` | Сборка/запуск/проверка веб-фронтенда (React+TS+Vite) в `platform_app/web/`. См. [Web Frontend](modules/web_frontend.md) |
+
+## Firmware Project (v3.1)
+
+| Команда | Назначение |
+|---------|-----------|
+| `/firmware-project` | Работа с `.firmproj`: добавить модуль, сменить статус, открыть в UCP. См. [Firmware Project](modules/firmware_project.md) + [Firmware Agent Runner](modules/firmware_agent_runner.md) |
+
+## UCP Project — Implementation (v1.0) ✓ DONE
+
+| Команда | Статус | Назначение |
+|---------|--------|-----------|
+| `/ucp-impl-wire-serial` | ✓ DONE | Сериализация проводников в `SchematicScene` |
+| `/ucp-impl-eventbus-unsub` | ✓ DONE | `EventBus::off(receiver)` + автоочистка при destroy |
+| `/ucp-impl-project-save` | ✓ DONE | File→Save/Open в MainWindow (уже было реализовано) |
+
+## UCP Project — Implementation (v1.1–v1.3) ✓ DONE
+
+| Команда | Статус | Назначение | Milestone |
+|---------|--------|-----------|-----------|
+| `/ucp-impl-net-labels` | ✓ DONE | `SchematicNetLabel` — именованные цепи (VCC, GND) | v1.1 |
+| `/ucp-impl-ratsnest` | ✓ DONE | Ратснест на PCB: dashed-airwires по netId | v1.2 |
+| `/ucp-impl-pid-plot` | ✓ DONE | `QChart` rolling-window для PID (setpoint/input/output) | v1.3 |
+| `/ucp-impl-pid-serial` | ✓ DONE | PID EventBus tick → UartMonitor TX queue | v1.2 |
+| `/ucp-impl-pcb-drc` | ✓ DONE | DRC: trace shorts, min width, unconnected nets | v1.2 |
+| `/ucp-impl-autosave` | ✓ DONE | Автосохранение в `<name>.ucp.bak` каждые 5 мин | v1.3 |
+| `/ucp-impl-ci` | ✓ DONE | GitHub Actions: Windows/Ubuntu/macOS CI матрица | v0.9.1 |
+
+## UCP Project — Implementation (v2.0) ✓ DONE
+
+| Команда | Статус | Назначение |
+|---------|--------|-----------|
+| `/ucp-impl-ai-schematic` | ✓ DONE | Claude API → JSON → авто-размещение компонентов на схеме |
+| `/ucp-impl-ota-flash` | ✓ DONE | OTA Flash: esptool.py subprocess + прогресс-бар |
+| `/ucp-impl-wasm` | ✓ DONE | Qt for WebAssembly: cmake/wasm.cmake + CI job |
+
+## Wiki & Knowledge
+
+| Команда | Назначение |
+|---------|-----------|
+| `/wiki` | Общий вход: запрос / ingest / lint / добавить страницу |
+| `/wiki-ingest` | Обработать источник из `raw/` в страницы вики |
+| `/wiki-query` | Ответить на вопрос по содержимому вики |
+| `/wiki-lint` | Найти сироты, противоречия, устаревшие данные |
+| `/wiki-add` | Создать новую страницу концепции |
+| `/wiki-status` | Дашборд вики: количество страниц, пробелы |
+| `/wiki-synth` | Синтез по теме из нескольких страниц |
+| `/mcu-wiki` | Запросы к MCU-вики (`wikiMemory/`) |
+| `/mcu-gen` | Генерация кода для MCU (DevForge) |
+
+## Качество кода
+
+| Команда | Назначение |
+|---------|-----------|
+| `/simplify` | Ревью изменённого кода на качество и переиспользование |
+| `/review` | Ревью pull request |
+| `/security-review` | Аудит безопасности текущей ветки |
+| `/init` | Инициализировать CLAUDE.md для репозитория |
+
+## Настройка окружения
+
+| Команда | Назначение |
+|---------|-----------|
+| `/update-config` | Редактировать settings.json: разрешения, хуки, env |
+| `/keybindings-help` | Настроить горячие клавиши Claude Code |
+| `/fewer-permission-prompts` | Добавить allowlist для частых команд |
+| `/loop` | Запускать команду с интервалом |
+| `/schedule` | Запланировать агента по cron |
+
+## Использование
+
+1. Введи `/команда` в чате — Claude Code вызовет нужный скилл
+2. Скиллы `/ucp-impl-*` содержат полный контекст кодовой базы — можно вызвать в новой сессии
+3. Для вики-операций всегда уточняй контекст:
+   - UCP вики → `platform_app/wiki/`
+   - MCU вики → `wikiMemory/`
+4. После реализации фичи отмечай в `wiki/roadmap.md` соответствующий пункт
