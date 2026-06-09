@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import type { SchComponent } from "../project.ts";
-import { pinsOf, pinOffset } from "../project.ts";
+import { pinsOf, pinOffset, runDrc } from "../project.ts";
 import { PanelHead } from "./common.tsx";
 
 const PALETTE = [
@@ -30,7 +30,11 @@ export function SchematicView() {
   const wires = ucp.project.wires;
   const [sel, setSel] = useState<string | null>(null);
   const [wireMode, setWireMode] = useState(false);
+  const [erc, setErc] = useState(false);
   const [pending, setPending] = useState<{ ref: string; pin: string } | null>(null);
+
+  // ERC: множество висящих выводов (из общей модели через runDrc).
+  const floating = useMemo(() => new Set(runDrc(ucp.project).floating), [ucp.project]);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -71,7 +75,11 @@ export function SchematicView() {
           <button className={`btn${wireMode ? " primary" : ""}`} onClick={() => { setWireMode((w) => !w); setPending(null); ucp.setStatus(wireMode ? "Select mode" : "Wire mode: click two pins"); }}>
             {wireMode ? "Wire ✓" : "Wire"}
           </button>
+          <button className={`btn${erc ? " primary" : ""}`} onClick={() => { setErc((e) => !e); ucp.setStatus(erc ? "ERC off" : `ERC: ${floating.size} floating pins`); }}>
+            ERC{erc ? " ✓" : ""}
+          </button>
           <span className="chip"><span className="dot ok" />{wires.length} wires</span>
+          {erc && <span className="chip"><span className={`dot ${floating.size ? "warn" : "ok"}`} />{floating.size} floating</span>}
         </>
       } />
       <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 220px", gap: 12 }}>
@@ -111,6 +119,13 @@ export function SchematicView() {
               <CompSym key={c.id} c={c} selected={c.id === sel}
                 onPointerDown={(e) => { if (!wireMode) onDown(e, c); }} />
             ))}
+            {/* ERC: красные маркеры на висящих выводах */}
+            {erc && comps.flatMap((c) =>
+              pinsOf(c.kind).filter((pin) => floating.has(`${c.ref}.${pin}`)).map((pin) => {
+                const p = pinPos(c, pin);
+                return <circle key={`erc-${c.id}-${pin}`} cx={p.x} cy={p.y} r={7} fill="none" stroke="var(--danger)" strokeWidth="2" pointerEvents="none" />;
+              }),
+            )}
             {/* кликабельные выводы в режиме провода */}
             {wireMode && comps.flatMap((c) =>
               pinsOf(c.kind).map((pin) => {
