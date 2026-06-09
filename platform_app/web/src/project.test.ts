@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist, importKicadSch } from "./project.ts";
+import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist, importKicadSch, exportBom } from "./project.ts";
 
 describe("project serialize/deserialize", () => {
   it("round-trips an empty project", () => {
@@ -103,6 +103,18 @@ describe("computeNets / exportNetlist", () => {
     const p = importNetlist(kicad);
     expect(p.components.map((c) => `${c.ref}:${c.kind}`)).toEqual(["R5:R", "U2:U"]);
     expect(p.wires).toEqual([{ from: { ref: "R5", pin: "2" }, to: { ref: "U2", pin: "1" } }]);
+  });
+});
+
+describe("exportBom", () => {
+  it("groups by kind+value and counts; CSV header", () => {
+    const p = emptyProject();
+    p.components.push({ id: "x", ref: "R2", kind: "R", value: "10k", x: 0, y: 0 }); // same as R1
+    const lines = exportBom(p).split("\n");
+    expect(lines[0]).toBe("Designators,Value,Kind,Quantity");
+    const r10k = lines.find((l) => l.includes("10k"));
+    expect(r10k).toBe('"R1, R2",10k,R,2'); // сгруппированы, в кавычках из-за запятой
+    expect(lines).toHaveLength(4); // header + R(10k) + C(100n) + U(STM32F401)
   });
 });
 

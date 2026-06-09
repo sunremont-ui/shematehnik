@@ -3,7 +3,7 @@ import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
 import { connectedComponents, rcLowpass, useCoreBackend } from "../core/ucpCore.ts";
-import { pinsOf, exportNetlist } from "../project.ts";
+import { pinsOf, exportNetlist, exportBom } from "../project.ts";
 import { downloadText } from "../util.ts";
 
 function EngineBadge({ backend }: { backend: string }) {
@@ -157,6 +157,7 @@ export function NetlistView() {
       <PanelHead mod={mod} right={<>
         <EngineBadge backend={backend} />
         <span className="chip"><span className="dot ok" />{nets.length} nets · {comps.length} comps</span>
+        <button className="btn" onClick={() => { downloadText(`${ucp.projectName}-bom.csv`, exportBom(ucp.project), "text/csv"); ucp.setStatus(`Exported ${ucp.projectName}-bom.csv`); }}>Export BOM</button>
         <button className="btn primary" onClick={() => { downloadText(`${ucp.projectName}.net`, exportNetlist(ucp.project)); ucp.setStatus(`Exported ${ucp.projectName}.net`); }}>Export netlist</button>
       </>} />
       <p className="panel-sub">Цепи выведены из общей модели проекта — добавьте/удалите компонент в Schematic и список обновится.</p>
