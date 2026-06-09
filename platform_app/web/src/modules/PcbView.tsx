@@ -7,7 +7,7 @@ import { PanelHead } from "./common.tsx";
 
 // Минимальный RS-274X Gerber: контур + флэши падов + разведённые дорожки (F.Cu).
 type Pt = { x: number; y: number };
-function buildGerber(fps: { pads: Pt[] }[], traces: { a: Pt; b: Pt }[] = []): string {
+function buildGerber(fps: { pads: Pt[] }[], paths: Pt[][] = []): string {
   const k = (px: number) => Math.round((px / 4) * 10000); // px → mm(3.4)
   const Y = (py: number) => k(340 - py);
   const L: string[] = ["%FSLAX34Y34*%", "%MOMM*%", "%ADD10C,1.50000*%", "%ADD11C,0.20000*%", "%ADD12C,0.30000*%", "G01*"];
@@ -15,13 +15,11 @@ function buildGerber(fps: { pads: Pt[] }[], traces: { a: Pt; b: Pt }[] = []): st
   L.push("D11*");
   const oc: [number, number][] = [[40, 40], [400, 40], [400, 300], [40, 300], [40, 40]];
   oc.forEach(([x, y], i) => L.push(`X${k(x)}Y${Y(y)}D0${i === 0 ? 2 : 1}*`));
-  // дорожки (D12) — L-разводка
-  if (traces.length) {
+  // дорожки (D12) — Manhattan-маршрут
+  if (paths.length) {
     L.push("D12*");
-    for (const t of traces) {
-      const mx = (t.a.x + t.b.x) / 2;
-      L.push(`X${k(t.a.x)}Y${Y(t.a.y)}D02*`, `X${k(mx)}Y${Y(t.a.y)}D01*`, `X${k(mx)}Y${Y(t.b.y)}D01*`, `X${k(t.b.x)}Y${Y(t.b.y)}D01*`);
-    }
+    for (const path of paths)
+      path.forEach((p, i) => L.push(`X${k(p.x)}Y${Y(p.y)}D0${i === 0 ? 2 : 1}*`));
   }
   // пады (D10)
   L.push("D10*");
@@ -57,13 +55,22 @@ export function PcbView() {
   }), [ucp.project.components]);
 
   // Ratsnest строится из реальных проводов (.ucp); sig — устойчивый ключ связи.
+  // path — Manhattan-маршрут дорожки: выход из пада наружу + канал ниже
+  // футпринтов, чтобы дорожка не пересекала корпуса компонентов.
   const rats = useMemo(() => {
     const fp = new Map(fps.map((f) => [f.ref, f]));
-    const pad = (ref: string, pin: string) => fp.get(ref)?.pads.find((p) => p.pin === pin) ?? null;
     return ucp.project.wires.flatMap((w) => {
-      const a = pad(w.from.ref, w.from.pin), b = pad(w.to.ref, w.to.pin);
+      const fa = fp.get(w.from.ref), fb = fp.get(w.to.ref);
+      const a = fa?.pads.find((p) => p.pin === w.from.pin);
+      const b = fb?.pads.find((p) => p.pin === w.to.pin);
+      if (!a || !b || !fa || !fb) return [];
+      const adir = Math.sign(a.x - fa.x) || 1;   // выход из пада наружу от центра футпринта
+      const bdir = Math.sign(b.x - fb.x) || 1;
+      const chY = Math.max(a.y, b.y) + 40;        // канал ниже обоих футпринтов
+      const ax = a.x + adir * 14, bx = b.x + bdir * 14;
+      const path = [a, { x: ax, y: a.y }, { x: ax, y: chY }, { x: bx, y: chY }, { x: bx, y: b.y }, b];
       const sig = `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}`;
-      return a && b ? [{ a, b, sig }] : [];
+      return [{ a, b, sig, path }];
     });
   }, [fps, ucp.project.wires]);
   const unrouted = rats.filter((r) => !routed.has(r.sig)).length;
@@ -81,7 +88,7 @@ export function PcbView() {
           <button className="btn" onClick={routeAll}>Route all</button>
           <button className="btn" onClick={ripUp}>Rip up</button>
           <button className="btn" onClick={() => { const r = runDrc(ucp.project); setDrc(r); ucp.setStatus(`DRC: ${r.errors} errors, ${r.unrouted} unrouted`); }}>Run DRC</button>
-          <button className="btn primary" onClick={() => { const tr = rats.filter((r) => routed.has(r.sig)); downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} traces)`); }}>Export Gerber</button>
+          <button className="btn primary" onClick={() => { const tr = rats.filter((r) => routed.has(r.sig)); downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr.map((r) => r.path)), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} traces)`); }}>Export Gerber</button>
         </>
       } />
       <p className="panel-sub">Посадочные места из модели ({fps.length}); разведено {rats.length - unrouted}/{rats.length} дорожек — клик по связи трассирует/распускает.</p>
@@ -120,9 +127,8 @@ export function PcbView() {
               const isRouted = routed.has(r.sig);
               if (isRouted) {
                 if (!vis.FCu) return null;
-                const mx = (r.a.x + r.b.x) / 2; // L-разводка по F.Cu
                 return (
-                  <polyline key={i} points={`${r.a.x},${r.a.y} ${mx},${r.a.y} ${mx},${r.b.y} ${r.b.x},${r.b.y}`}
+                  <polyline key={i} points={r.path.map((p) => `${p.x},${p.y}`).join(" ")}
                     fill="none" stroke={LAYERS[0].color} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"
                     style={{ cursor: "pointer" }} onClick={() => toggleRoute(r.sig)} />
                 );
