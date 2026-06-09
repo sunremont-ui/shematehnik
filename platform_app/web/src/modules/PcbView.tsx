@@ -29,6 +29,15 @@ function buildGerber(fps: { pads: Pt[] }[], paths: Pt[][] = []): string {
   return L.join("\n");
 }
 
+// Excellon drill: отверстия падов (металлизированные, служат переходами).
+function buildDrill(fps: { pads: Pt[] }[]): string {
+  const mm = (px: number) => (px / 4).toFixed(3);
+  const L: string[] = ["M48", "FMAT,2", "METRIC", "T1C0.800", "%", "G90", "T1"];
+  for (const f of fps) for (const p of f.pads) L.push(`X${mm(p.x)}Y${mm(340 - p.y)}`);
+  L.push("M30");
+  return L.join("\n");
+}
+
 const LAYERS = [
   { id: "FCu",   label: "F.Cu",      color: "#c83434" },
   { id: "BCu",   label: "B.Cu",      color: "#3457c8" },
@@ -114,7 +123,15 @@ export function PcbView() {
           <button className="btn" onClick={routeAll}>Route all</button>
           <button className="btn" onClick={ripUp}>Rip up</button>
           <button className="btn" onClick={() => { const r = runDrc(ucp.project); setDrc(r); ucp.setStatus(`DRC: ${r.errors} errors, ${r.unrouted} unrouted`); }}>Run DRC</button>
-          <button className="btn primary" onClick={() => { const tr = [...routedPaths.values()].filter((r) => r.layer === "F").map((r) => r.path); downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} F.Cu traces)`); }}>Export Gerber</button>
+          <button className="btn primary" onClick={() => {
+            const f = [...routedPaths.values()].filter((r) => r.layer === "F").map((r) => r.path);
+            const b = [...routedPaths.values()].filter((r) => r.layer === "B").map((r) => r.path);
+            const n = ucp.projectName;
+            downloadText(`${n}-F_Cu.gbr`, buildGerber(fps, f), "application/vnd.gerber");
+            downloadText(`${n}-B_Cu.gbr`, buildGerber(fps, b), "application/vnd.gerber");
+            downloadText(`${n}.drl`, buildDrill(fps), "text/plain");
+            ucp.setStatus(`Exported ${n}: F_Cu (${f.length}) + B_Cu (${b.length}) + drill`);
+          }}>Export fab</button>
         </>
       } />
       <p className="panel-sub">Посадочные места из модели ({fps.length}); разведено {links.length - unrouted}/{links.length} дорожек — клик по связи трассирует/распускает.</p>
