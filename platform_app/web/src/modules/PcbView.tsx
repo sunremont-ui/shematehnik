@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { pinsOf, pinOffset, runDrc } from "../project.ts";
+import { routeOrthogonal, type Rect } from "../routing.ts";
 import { downloadText } from "../util.ts";
 import { PanelHead } from "./common.tsx";
 
@@ -54,9 +55,14 @@ export function PcbView() {
     return { ref: c.ref, kind: c.kind, x, y, pads };
   }), [ucp.project.components]);
 
-  // Ratsnest строится из реальных проводов (.ucp); sig — устойчивый ключ связи.
-  // path — Manhattan-маршрут дорожки: выход из пада наружу + канал ниже
-  // футпринтов, чтобы дорожка не пересекала корпуса компонентов.
+  // Препятствия для роутера — bounding-box футпринтов.
+  const obstacles = useMemo<Rect[]>(() => fps.map((f) => {
+    const big = f.kind === "U";
+    return { x0: f.x - (big ? 24 : 26), y0: f.y - (big ? 28 : 12), x1: f.x + (big ? 24 : 26), y1: f.y + (big ? 28 : 12) };
+  }), [fps]);
+
+  // Ratsnest из реальных проводов (.ucp); path — дорожка A* с объездом
+  // футпринтов (выход из пада наружу + ортогональный маршрут вокруг корпусов).
   const rats = useMemo(() => {
     const fp = new Map(fps.map((f) => [f.ref, f]));
     return ucp.project.wires.flatMap((w) => {
@@ -66,13 +72,12 @@ export function PcbView() {
       if (!a || !b || !fa || !fb) return [];
       const adir = Math.sign(a.x - fa.x) || 1;   // выход из пада наружу от центра футпринта
       const bdir = Math.sign(b.x - fb.x) || 1;
-      const chY = Math.max(a.y, b.y) + 40;        // канал ниже обоих футпринтов
-      const ax = a.x + adir * 14, bx = b.x + bdir * 14;
-      const path = [a, { x: ax, y: a.y }, { x: ax, y: chY }, { x: bx, y: chY }, { x: bx, y: b.y }, b];
+      const s1 = { x: a.x + adir * 14, y: a.y }, s2 = { x: b.x + bdir * 14, y: b.y };
+      const path = [{ x: a.x, y: a.y }, ...routeOrthogonal(s1, s2, obstacles), { x: b.x, y: b.y }];
       const sig = `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}`;
       return [{ a, b, sig, path }];
     });
-  }, [fps, ucp.project.wires]);
+  }, [fps, obstacles, ucp.project.wires]);
   const unrouted = rats.filter((r) => !routed.has(r.sig)).length;
 
   function toggleRoute(sig: string) {
