@@ -3,6 +3,8 @@ import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
 import { connectedComponents, rcLowpass, useCoreBackend } from "../core/ucpCore.ts";
+import { pinsOf, exportNetlist } from "../project.ts";
+import { downloadText } from "../util.ts";
 
 function EngineBadge({ backend }: { backend: string }) {
   return (
@@ -130,30 +132,32 @@ export function NetlistView() {
   const backend = useCoreBackend();
   const comps = ucp.project.components;
 
-  // Цепи выводятся из общей модели: последовательная цепочка
-  // comp[i].2 ↔ comp[i+1].1 (демо-связность). union-find считает ядро.
+  const wires = ucp.project.wires;
+  // Цепи выводятся из реальных проводов (.ucp) через union-find в ядре.
   const nets = useMemo(() => {
-    const pins = comps.flatMap((c) => [`${c.ref}.1`, `${c.ref}.2`]);
+    const pins = comps.flatMap((c) => pinsOf(c.kind).map((p) => `${c.ref}.${p}`));
     const idx = new Map(pins.map((p, i) => [p, i]));
-    const edges: number[] = [];
-    for (let i = 0; i + 1 < comps.length; i++) {
-      edges.push(idx.get(`${comps[i].ref}.2`)!, idx.get(`${comps[i + 1].ref}.1`)!);
-    }
     if (pins.length === 0) return [];
+    const edges = wires.flatMap((w) => {
+      const a = idx.get(`${w.from.ref}.${w.from.pin}`), b = idx.get(`${w.to.ref}.${w.to.pin}`);
+      return a != null && b != null ? [a, b] : [];
+    });
     const labels = connectedComponents(pins.length, edges); // ← ядро (WASM/JS)
     const groups = new Map<number, string[]>();
     labels.forEach((id, i) => {
       if (!groups.has(id)) groups.set(id, []);
       groups.get(id)!.push(pins[i]);
     });
-    return [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([, nodes], i) => ({ net: `N$${i + 1}`, nodes }));
-  }, [comps, backend]);
+    // показываем только цепи с >1 выводом (реально соединённые)
+    return [...groups.values()].filter((n) => n.length > 1).map((nodes, i) => ({ net: `N$${i + 1}`, nodes }));
+  }, [comps, wires, backend]);
 
   return (
     <div>
       <PanelHead mod={mod} right={<>
         <EngineBadge backend={backend} />
         <span className="chip"><span className="dot ok" />{nets.length} nets · {comps.length} comps</span>
+        <button className="btn primary" onClick={() => { downloadText(`${ucp.projectName}.net`, exportNetlist(ucp.project)); ucp.setStatus(`Exported ${ucp.projectName}.net`); }}>Export netlist</button>
       </>} />
       <p className="panel-sub">Цепи выведены из общей модели проекта — добавьте/удалите компонент в Schematic и список обновится.</p>
       <div className="card">

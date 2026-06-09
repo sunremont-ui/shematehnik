@@ -20,7 +20,13 @@ interface WasmCore {
   pidStep(kp: number, ki: number, kd: number, setpoint: number, steps: number): Vec<number>;
   rcLowpass(r: number, c: number, vinAmp: number, freqHz: number, tEnd: number, steps: number): Vec<number>;
   connectedComponents(n: number, edges: number[]): Vec<number>;
+  csgBoxes(op: number, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number,
+           dx: number, dy: number, dz: number, ex: number, ey: number, ez: number): Vec<number>;
 }
+
+export type Vec3 = [number, number, number];
+export interface Box { c: Vec3; r: Vec3; }
+export type CsgOp = 0 | 1 | 2; // union | subtract | intersect
 
 function vecToArray<T>(v: Vec<T>): T[] {
   const out: T[] = [];
@@ -157,6 +163,32 @@ export function rcLowpass(r: number, c: number, vinAmp: number, freqHz: number, 
 export function connectedComponents(n: number, edges: number[]): number[] {
   if (wasm) return vecToArray(wasm.connectedComponents(n, edges));
   return connectedComponentsJs(n, edges);
+}
+
+// Реальная CSG считается в WASM (BSP-дерево). JS-фолбэк — грубая аппроксимация
+// (просто коробки), только чтобы приложение работало без собранного wasm.
+function boxTrisJs(b: Box): number[] {
+  const [cx, cy, cz] = b.c, [rx, ry, rz] = b.r;
+  const v = (sx: number, sy: number, sz: number): Vec3 => [cx + rx * sx, cy + ry * sy, cz + rz * sz];
+  const quad = (a: Vec3, b2: Vec3, c2: Vec3, d: Vec3) =>
+    [...a, ...b2, ...c2, ...a, ...c2, ...d];
+  return [
+    ...quad(v(-1,-1,1), v(1,-1,1), v(1,1,1), v(-1,1,1)),
+    ...quad(v(-1,-1,-1), v(-1,1,-1), v(1,1,-1), v(1,-1,-1)),
+    ...quad(v(-1,1,-1), v(-1,1,1), v(1,1,1), v(1,1,-1)),
+    ...quad(v(-1,-1,-1), v(1,-1,-1), v(1,-1,1), v(-1,-1,1)),
+    ...quad(v(1,-1,-1), v(1,1,-1), v(1,1,1), v(1,-1,1)),
+    ...quad(v(-1,-1,-1), v(-1,-1,1), v(-1,1,1), v(-1,1,-1)),
+  ];
+}
+
+export function csg(op: CsgOp, a: Box, b: Box): number[] {
+  if (wasm) {
+    return vecToArray(wasm.csgBoxes(op,
+      a.c[0], a.c[1], a.c[2], a.r[0], a.r[1], a.r[2],
+      b.c[0], b.c[1], b.c[2], b.r[0], b.r[1], b.r[2]));
+  }
+  return op === 0 ? [...boxTrisJs(a), ...boxTrisJs(b)] : boxTrisJs(a);
 }
 
 // --- React-хук для бейджа бэкенда ---

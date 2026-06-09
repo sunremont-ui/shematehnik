@@ -8,6 +8,7 @@ interface Item {
   onClick?: () => void;
   sep?: boolean;
   checked?: boolean;
+  disabled?: boolean;
 }
 
 function flat(list: ModuleDef[], acc: ModuleDef[] = []): ModuleDef[] {
@@ -38,6 +39,10 @@ export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
       { label: "Save", shortcut: "Ctrl+S", onClick: onSave },
       { label: "", sep: true },
       { label: "Exit", shortcut: "Ctrl+Q", onClick: () => ucp.setStatus("Exit недоступен в браузере") },
+    ],
+    Edit: [
+      { label: "Undo", shortcut: "Ctrl+Z", onClick: ucp.undo, disabled: !ucp.canUndo },
+      { label: "Redo", shortcut: "Ctrl+Y", onClick: ucp.redo, disabled: !ucp.canRedo },
     ],
     Modules: flat(MODULE_TREE).map((m) => ({
       label: `Add ${m.name}`,
@@ -77,7 +82,9 @@ export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
                 ) : (
                   <button
                     key={i}
-                    onClick={() => { it.onClick?.(); setOpen(null); }}
+                    disabled={it.disabled}
+                    style={it.disabled ? { opacity: 0.4, cursor: "default" } : undefined}
+                    onClick={() => { if (it.disabled) return; it.onClick?.(); setOpen(null); }}
                   >
                     <span>{it.checked ? "● " : ""}{it.label}</span>
                     {it.shortcut && <span className="sc">{it.shortcut}</span>}

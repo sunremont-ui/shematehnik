@@ -54,6 +54,46 @@ export function App() {
     clearTimer.current = window.setTimeout(() => setStatusState("Ready"), 5000);
   }, []);
 
+  // История undo/redo. Чекпоинт ставится с debounce → быстрые drag-обновления
+  // схлопываются в один шаг отмены.
+  const past = useRef<UcpProject[]>([]);
+  const future = useRef<UcpProject[]>([]);
+  const prevProject = useRef<UcpProject>(project);
+  const skipHistory = useRef(false);
+  const [histVer, setHistVer] = useState(0);
+
+  useEffect(() => {
+    if (skipHistory.current) { skipHistory.current = false; prevProject.current = project; return; }
+    const t = window.setTimeout(() => {
+      if (prevProject.current !== project) {
+        past.current.push(prevProject.current);
+        if (past.current.length > 50) past.current.shift();
+        future.current = [];
+        prevProject.current = project;
+        setHistVer((v) => v + 1);
+      }
+    }, 500);
+    return () => window.clearTimeout(t);
+  }, [project]);
+
+  const undo = useCallback(() => {
+    // дозафиксировать незакоммиченное изменение, затем откатить
+    if (prevProject.current !== project) { past.current.push(prevProject.current); prevProject.current = project; }
+    const p = past.current.pop();
+    if (!p) return;
+    future.current.push(project);
+    skipHistory.current = true; prevProject.current = p;
+    setProject(p); setModified(true); setStatus("Undo"); setHistVer((v) => v + 1);
+  }, [project, setStatus]);
+
+  const redo = useCallback(() => {
+    const p = future.current.pop();
+    if (!p) return;
+    past.current.push(project);
+    skipHistory.current = true; prevProject.current = p;
+    setProject(p); setModified(true); setStatus("Redo"); setHistVer((v) => v + 1);
+  }, [project, setStatus]);
+
   const newProject = useCallback(() => {
     setProject(emptyProject()); setModified(false); setSelected(null);
     setStatus("New project created");
@@ -103,8 +143,30 @@ export function App() {
     updateComponent: (id, patch) => setProject((p) => ({
       ...p, components: p.components.map((c) => c.id === id ? { ...c, ...patch } : c),
     })),
-    removeComponent: (id) => { setProject((p) => ({ ...p, components: p.components.filter((c) => c.id !== id) })); setModified(true); },
+    removeComponent: (id) => setProject((p) => {
+      const comp = p.components.find((c) => c.id === id);
+      setModified(true);
+      return {
+        ...p,
+        components: p.components.filter((c) => c.id !== id),
+        wires: comp ? p.wires.filter((w) => w.from.ref !== comp.ref && w.to.ref !== comp.ref) : p.wires,
+      };
+    }),
+    addWire: (from, to) => setProject((p) => {
+      if (from.ref === to.ref && from.pin === to.pin) return p;
+      const dup = p.wires.some((w) =>
+        (w.from.ref === from.ref && w.from.pin === from.pin && w.to.ref === to.ref && w.to.pin === to.pin) ||
+        (w.from.ref === to.ref && w.from.pin === to.pin && w.to.ref === from.ref && w.to.pin === from.pin));
+      if (dup) return p;
+      setModified(true); setStatus(`Wire ${from.ref}.${from.pin} → ${to.ref}.${to.pin}`);
+      return { ...p, wires: [...p.wires, { from, to }] };
+    }),
+    removeWire: (index) => { setProject((p) => ({ ...p, wires: p.wires.filter((_, i) => i !== index) })); setModified(true); },
     loadProject: (p) => { setProject(p); setModified(false); },
+
+    undo, redo,
+    canUndo: (void histVer, past.current.length > 0),
+    canRedo: future.current.length > 0,
   };
 
   useEffect(() => {
@@ -112,12 +174,14 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "n") { e.preventDefault(); newProject(); }
       else if (e.ctrlKey && e.key.toLowerCase() === "s") { e.preventDefault(); saveProject(); }
       else if (e.ctrlKey && e.key.toLowerCase() === "o") { e.preventDefault(); fileInput.current?.click(); }
+      else if (e.ctrlKey && (e.key === "z" || e.key === "Z") && !e.shiftKey) { e.preventDefault(); undo(); }
+      else if (e.ctrlKey && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); redo(); }
       else if (e.ctrlKey && e.key === "\\") { e.preventDefault(); setTreeVisible((v) => !v); }
       else if (e.ctrlKey && e.key === "/") { e.preventDefault(); setDialog("shortcuts"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [newProject, saveProject]);
+  }, [newProject, saveProject, undo, redo]);
 
   return (
     <UcpContext.Provider value={state}>

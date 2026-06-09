@@ -3,7 +3,7 @@
 // ============================================================
 import { createContext, useContext } from "react";
 import type { ModuleKind } from "./data/modules.ts";
-import type { SchComponent, UcpProject } from "./project.ts";
+import type { PinRef, SchComponent, UcpProject } from "./project.ts";
 
 export interface UcpState {
   projectName: string;
@@ -25,7 +25,15 @@ export interface UcpState {
   addComponent: (kind: string, value: string) => void;
   updateComponent: (id: string, patch: Partial<SchComponent>) => void;
   removeComponent: (id: string) => void;
+  addWire: (from: PinRef, to: PinRef) => void;
+  removeWire: (index: number) => void;
   loadProject: (p: UcpProject) => void;     // File → Open
+
+  // --- История (undo/redo, с коалесингом перетаскивания) ---
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 export const UcpContext = createContext<UcpState | null>(null);
