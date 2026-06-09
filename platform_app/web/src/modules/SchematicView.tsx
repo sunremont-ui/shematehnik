@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
+import type { SchComponent } from "../project.ts";
 import { PanelHead } from "./common.tsx";
-
-interface Comp { id: number; ref: string; kind: string; x: number; y: number; value: string; }
 
 const PALETTE = [
   { kind: "R", label: "Resistor", value: "10k" },
@@ -20,25 +19,12 @@ const snap = (v: number) => Math.round(v / GRID) * GRID;
 export function SchematicView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["schematic"];
-  const [comps, setComps] = useState<Comp[]>([
-    { id: 1, ref: "R1", kind: "R", x: 160, y: 140, value: "10k" },
-    { id: 2, ref: "C1", kind: "C", x: 320, y: 140, value: "100n" },
-    { id: 3, ref: "U1", kind: "U", x: 240, y: 280, value: "STM32F401" },
-  ]);
-  const [sel, setSel] = useState<number | null>(null);
-  const counters = useRef<Record<string, number>>({ R: 1, C: 1, L: 0, D: 0, Q: 0, U: 1 });
-  const drag = useRef<{ id: number; dx: number; dy: number } | null>(null);
+  const comps = ucp.project.components;        // ← общая модель проекта
+  const [sel, setSel] = useState<string | null>(null);
+  const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  function add(kind: string, value: string) {
-    counters.current[kind] = (counters.current[kind] ?? 0) + 1;
-    const id = Date.now();
-    setComps((c) => [...c, { id, ref: `${kind}${counters.current[kind]}`, kind, x: 120, y: 80, value }]);
-    ucp.setStatus(`Placed ${kind}${counters.current[kind]}`);
-    ucp.markModified();
-  }
-
-  function onDown(e: React.PointerEvent, comp: Comp) {
+  function onDown(e: React.PointerEvent, comp: SchComponent) {
     const pt = toLocal(e);
     drag.current = { id: comp.id, dx: pt.x - comp.x, dy: pt.y - comp.y };
     setSel(comp.id);
@@ -47,8 +33,9 @@ export function SchematicView() {
   function onMove(e: React.PointerEvent) {
     if (!drag.current) return;
     const pt = toLocal(e);
-    setComps((cs) => cs.map((c) => c.id === drag.current!.id
-      ? { ...c, x: snap(pt.x - drag.current!.dx), y: snap(pt.y - drag.current!.dy) } : c));
+    ucp.updateComponent(drag.current.id, {
+      x: snap(pt.x - drag.current.dx), y: snap(pt.y - drag.current.dy),
+    });
   }
   function onUp() {
     if (drag.current) { ucp.markModified(); drag.current = null; }
@@ -74,7 +61,7 @@ export function SchematicView() {
           <div className="muted" style={{ marginBottom: 8, fontSize: 11 }}>COMPONENTS</div>
           {PALETTE.map((p) => (
             <button key={p.kind} className="btn" style={{ width: "100%", marginBottom: 6, textAlign: "left" }}
-              onClick={() => add(p.kind, p.value)}>
+              onClick={() => ucp.addComponent(p.kind, p.value)}>
               <b>{p.kind}</b> · {p.label}
             </button>
           ))}
@@ -107,13 +94,13 @@ export function SchematicView() {
           {selected ? (
             <div style={{ display: "grid", gap: 10 }}>
               <label className="field">Reference
-                <input value={selected.ref} onChange={(e) => upd(selected.id, { ref: e.target.value })} />
+                <input value={selected.ref} onChange={(e) => { ucp.updateComponent(selected.id, { ref: e.target.value }); ucp.markModified(); }} />
               </label>
               <label className="field">Value
-                <input value={selected.value} onChange={(e) => upd(selected.id, { value: e.target.value })} />
+                <input value={selected.value} onChange={(e) => { ucp.updateComponent(selected.id, { value: e.target.value }); ucp.markModified(); }} />
               </label>
               <div className="muted">Pos: {selected.x}, {selected.y}</div>
-              <button className="btn" onClick={() => { setComps((cs) => cs.filter((c) => c.id !== selected.id)); setSel(null); ucp.markModified(); }}>
+              <button className="btn" onClick={() => { ucp.removeComponent(selected.id); setSel(null); }}>
                 Delete
               </button>
             </div>
@@ -122,20 +109,15 @@ export function SchematicView() {
       </div>
     </div>
   );
-
-  function upd(id: number, patch: Partial<Comp>) {
-    setComps((cs) => cs.map((c) => c.id === id ? { ...c, ...patch } : c));
-    ucp.markModified();
-  }
 }
 
-function wire(a: Comp, b: Comp) {
+function wire(a: SchComponent, b: SchComponent) {
   const mx = (a.x + b.x) / 2;
   return `${a.x + 24},${a.y} ${mx},${a.y} ${mx},${b.y} ${b.x - 24},${b.y}`;
 }
 
 function CompSym({ c, selected, onPointerDown }: {
-  c: Comp; selected: boolean; onPointerDown: (e: React.PointerEvent) => void;
+  c: SchComponent; selected: boolean; onPointerDown: (e: React.PointerEvent) => void;
 }) {
   const stroke = selected ? "var(--accent)" : "var(--text)";
   return (

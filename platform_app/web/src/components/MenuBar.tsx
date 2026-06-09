@@ -15,8 +15,9 @@ function flat(list: ModuleDef[], acc: ModuleDef[] = []): ModuleDef[] {
   return acc;
 }
 
-export function MenuBar({ onAbout, onShortcuts, onHelp }: {
+export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
   onAbout: () => void; onShortcuts: () => void; onHelp: () => void;
+  onSave: () => void; onOpen: () => void;
 }) {
   const ucp = useUcp();
   const [open, setOpen] = useState<string | null>(null);
@@ -33,8 +34,8 @@ export function MenuBar({ onAbout, onShortcuts, onHelp }: {
   const menus: Record<string, Item[]> = {
     File: [
       { label: "New Project", shortcut: "Ctrl+N", onClick: () => ucp.newProject() },
-      { label: "Open…", shortcut: "Ctrl+O", onClick: () => ucp.setStatus("Open: браузер-демо (файловый диалог недоступен)") },
-      { label: "Save", shortcut: "Ctrl+S", onClick: () => ucp.setStatus(`Saved: ${ucp.projectName}.ucp`) },
+      { label: "Open…", shortcut: "Ctrl+O", onClick: onOpen },
+      { label: "Save", shortcut: "Ctrl+S", onClick: onSave },
       { label: "", sep: true },
       { label: "Exit", shortcut: "Ctrl+Q", onClick: () => ucp.setStatus("Exit недоступен в браузере") },
     ],

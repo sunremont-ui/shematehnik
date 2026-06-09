@@ -124,45 +124,38 @@ export function WireToolView() {
 // ============================================================
 // Netlist — список цепей
 // ============================================================
-// Пины-узлы и соединения (как из Schematic). Цепи вычисляются union-find в ядре.
-const PINS = ["U1.7", "R1.1", "C1.+", "U1.4", "C1.-", "D1.K", "U1.6", "R1.2", "D1.A"];
-const WIRES: [string, string][] = [
-  ["U1.7", "R1.1"], ["R1.1", "C1.+"],          // VCC
-  ["U1.4", "C1.-"], ["C1.-", "D1.K"],          // GND
-  ["U1.6", "R1.2"],                            // N$1
-  ["R1.2", "D1.A"],                            // N$2 (через R1.2 → объединится с N$1)
-];
-
-function namedNet(idx: number, nodes: string[]): string {
-  if (nodes.includes("U1.7")) return "VCC";
-  if (nodes.includes("U1.4")) return "GND";
-  return `N$${idx}`;
-}
-
 export function NetlistView() {
+  const ucp = useUcp();
   const mod = MODULE_INDEX["netlist"];
   const backend = useCoreBackend();
+  const comps = ucp.project.components;
 
+  // Цепи выводятся из общей модели: последовательная цепочка
+  // comp[i].2 ↔ comp[i+1].1 (демо-связность). union-find считает ядро.
   const nets = useMemo(() => {
-    const index = new Map(PINS.map((p, i) => [p, i]));
-    const edges = WIRES.flatMap(([a, b]) => [index.get(a)!, index.get(b)!]);
-    const labels = connectedComponents(PINS.length, edges); // ← ядро (WASM/JS)
+    const pins = comps.flatMap((c) => [`${c.ref}.1`, `${c.ref}.2`]);
+    const idx = new Map(pins.map((p, i) => [p, i]));
+    const edges: number[] = [];
+    for (let i = 0; i + 1 < comps.length; i++) {
+      edges.push(idx.get(`${comps[i].ref}.2`)!, idx.get(`${comps[i + 1].ref}.1`)!);
+    }
+    if (pins.length === 0) return [];
+    const labels = connectedComponents(pins.length, edges); // ← ядро (WASM/JS)
     const groups = new Map<number, string[]>();
     labels.forEach((id, i) => {
       if (!groups.has(id)) groups.set(id, []);
-      groups.get(id)!.push(PINS[i]);
+      groups.get(id)!.push(pins[i]);
     });
-    return [...groups.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([id, nodes]) => ({ net: namedNet(id, nodes), nodes }));
-  }, [backend]);
+    return [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([, nodes], i) => ({ net: `N$${i + 1}`, nodes }));
+  }, [comps, backend]);
 
   return (
     <div>
       <PanelHead mod={mod} right={<>
         <EngineBadge backend={backend} />
-        <span className="chip"><span className="dot ok" />{nets.length} nets</span>
+        <span className="chip"><span className="dot ok" />{nets.length} nets · {comps.length} comps</span>
       </>} />
+      <p className="panel-sub">Цепи выведены из общей модели проекта — добавьте/удалите компонент в Schematic и список обновится.</p>
       <div className="card">
         <table className="tbl">
           <thead><tr><th>Net</th><th>Nodes</th><th>Count</th></tr></thead>
@@ -170,6 +163,7 @@ export function NetlistView() {
             {nets.map((n) => (
               <tr key={n.net}><td><code>{n.net}</code></td><td>{n.nodes.map((x) => <span key={x} className="tag" style={{ marginRight: 4 }}>{x}</span>)}</td><td>{n.nodes.length}</td></tr>
             ))}
+            {nets.length === 0 && <tr><td colSpan={3} className="muted">Нет компонентов.</td></tr>}
           </tbody>
         </table>
       </div>

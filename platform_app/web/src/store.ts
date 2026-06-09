@@ -3,6 +3,7 @@
 // ============================================================
 import { createContext, useContext } from "react";
 import type { ModuleKind } from "./data/modules.ts";
+import type { SchComponent, UcpProject } from "./project.ts";
 
 export interface UcpState {
   projectName: string;
@@ -18,6 +19,13 @@ export interface UcpState {
   newProject: () => void;
   setProjectName: (name: string) => void;
   markModified: () => void;
+
+  // --- Общая модель проекта (единый источник правды) ---
+  project: UcpProject;
+  addComponent: (kind: string, value: string) => void;
+  updateComponent: (id: string, patch: Partial<SchComponent>) => void;
+  removeComponent: (id: string) => void;
+  loadProject: (p: UcpProject) => void;     // File → Open
 }
 
 export const UcpContext = createContext<UcpState | null>(null);
