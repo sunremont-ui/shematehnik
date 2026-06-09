@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build \
+            qt6-base-dev libqt6svg6-dev \
+            libgl1-mesa-dev libgles2-mesa-dev
+      - name: Build
+        run: |
+          cd platform_app
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+      - name: Test
+        run: cd platform_app/build && ctest --output-on-failure
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Qt6
+        run: brew install qt6 cmake ninja
+      - name: Build
+        run: |
+          cd platform_app
+          cmake -B build -G Ninja \
+            -DCMAKE_PREFIX_PATH=$(brew --prefix qt6) \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+      - name: Test
+        run: cd platform_app/build && ctest --output-on-failure
+
+  windows-msys2:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-svg
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          cd platform_app
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --parallel
+      - name: Test
+        run: cd platform_app/build && ctest --output-on-failure
+
+  wasm:
+    runs-on: ubuntu-latest
+    continue-on-error: true  # WASM build is best-effort
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install emsdk
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install 3.1.50
+          ~/emsdk/emsdk activate 3.1.50
+          echo "EMSDK=$HOME/emsdk" >> $GITHUB_ENV
+          echo "$HOME/emsdk/upstream/emscripten" >> $GITHUB_PATH
+
+      - name: Install Qt for WASM via aqtinstall
+        run: |
+          pip install aqtinstall
+          aqt install-qt linux desktop 6.6.0 wasm_singlethread \
+            -O ~/Qt \
+            --modules qtcharts qtserialport
+          echo "QT_WASM_ROOT=$HOME/Qt/6.6.0/wasm_singlethread" >> $GITHUB_ENV
+
+      - name: Configure (WASM)
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          cd platform_app
+          cmake -B build-wasm \
+            -DCMAKE_TOOLCHAIN_FILE=cmake/wasm.cmake \
+            -DQT_WASM_ROOT=$QT_WASM_ROOT \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (WASM)
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          cmake --build platform_app/build-wasm --parallel
+
+      - name: Upload WASM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ucp-wasm
+          path: |
+            platform_app/build-wasm/ucp.html
+            platform_app/build-wasm/ucp.wasm
+            platform_app/build-wasm/ucp.js
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------
+  # Web frontend (React + TS + Vite) + its WASM compute core
+  # ---------------------------------------------------------
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform_app/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: platform_app/web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Install Emscripten
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install latest
+          ~/emsdk/emsdk activate latest
+
+      - name: Build WASM compute core
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          npm run build:wasm
+
+      - name: Verify WASM artifacts produced
+        run: test -f public/wasm/ucp_core.js && test -f public/wasm/ucp_core.wasm
+
+      - name: Build web (tsc + vite)
+        run: npm run build
+
+      - name: Verify WASM copied into dist
+        run: test -f dist/wasm/ucp_core.wasm
+
+      - name: Upload web bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ucp-web
+          path: platform_app/web/dist
+          if-no-files-found: error

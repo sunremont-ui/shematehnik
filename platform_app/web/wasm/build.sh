@@ -15,4 +15,4 @@ fi
 
 emcmake cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-echo "OK -> ../src/core/generated/ucp_core.js"
+echo "OK -> ../public/wasm/ucp_core.js"
