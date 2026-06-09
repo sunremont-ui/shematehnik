@@ -50,8 +50,9 @@ export function initCore(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
     try {
-      // Абсолютный путь с BASE_URL работает и в dev, и в проде.
-      const path = `${import.meta.env.BASE_URL}wasm/ucp_core.js`;
+      // Резолвим относительно baseURI документа — работает в dev, в проде
+      // и на любом subpath (GitHub Pages /<repo>/).
+      const path = new URL("wasm/ucp_core.js", document.baseURI).href;
       const mod = await dynamicImport(path);
       const factory = (mod.default ?? mod.createUcpCore) as () => Promise<WasmCore>;
       wasm = await factory();

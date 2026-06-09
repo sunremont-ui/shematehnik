@@ -33,3 +33,17 @@ npm run dev      # http://localhost:5173
 ```
 
 Сборка прод-версии: `npm run build` → `dist/`.
+
+## Тесты
+
+```bash
+npm test          # Vitest — юнит-тесты ядра и модели
+npm run test:e2e  # Playwright — e2e-смоук (поднимает preview)
+```
+
+## Деплой
+
+`base: "./"` (относительные пути) + загрузка wasm через `document.baseURI`
+→ работает на любом subpath. Воркфлоу [deploy-web.yml](../../.github/workflows/deploy-web.yml)
+собирает wasm + бандл и публикует `dist/` на **GitHub Pages** при push в
+master/main (нужно включить Pages → Source: GitHub Actions в настройках репо).
