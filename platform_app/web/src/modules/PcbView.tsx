@@ -61,29 +61,43 @@ export function PcbView() {
     return { x0: f.x - (big ? 24 : 26), y0: f.y - (big ? 28 : 12), x1: f.x + (big ? 24 : 26), y1: f.y + (big ? 28 : 12) };
   }), [fps]);
 
-  // Ratsnest из реальных проводов (.ucp); path — дорожка A* с объездом
-  // футпринтов (выход из пада наружу + ортогональный маршрут вокруг корпусов).
-  const rats = useMemo(() => {
+  // Связи (ratsnest) из проводов (.ucp): пады + точки выхода стабов + sig.
+  const links = useMemo(() => {
     const fp = new Map(fps.map((f) => [f.ref, f]));
     return ucp.project.wires.flatMap((w) => {
       const fa = fp.get(w.from.ref), fb = fp.get(w.to.ref);
       const a = fa?.pads.find((p) => p.pin === w.from.pin);
       const b = fb?.pads.find((p) => p.pin === w.to.pin);
       if (!a || !b || !fa || !fb) return [];
-      const adir = Math.sign(a.x - fa.x) || 1;   // выход из пада наружу от центра футпринта
-      const bdir = Math.sign(b.x - fb.x) || 1;
+      const adir = Math.sign(a.x - fa.x) || 1, bdir = Math.sign(b.x - fb.x) || 1;
       const s1 = { x: a.x + adir * 14, y: a.y }, s2 = { x: b.x + bdir * 14, y: b.y };
-      const path = [{ x: a.x, y: a.y }, ...routeOrthogonal(s1, s2, obstacles), { x: b.x, y: b.y }];
-      const sig = `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}`;
-      return [{ a, b, sig, path }];
+      return [{ a, b, s1, s2, sig: `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}` }];
     });
-  }, [fps, obstacles, ucp.project.wires]);
-  const unrouted = rats.filter((r) => !routed.has(r.sig)).length;
+  }, [fps, ucp.project.wires]);
+
+  // Последовательная разводка: каждая разведённая дорожка трассируется A*
+  // с объездом футпринтов + уже уложенных дорожек (без наложений).
+  const routedPaths = useMemo(() => {
+    const placed: Rect[] = [];
+    const m = new Map<string, { x: number; y: number }[]>();
+    for (const l of links) {
+      if (!routed.has(l.sig)) continue;
+      const path = [{ x: l.a.x, y: l.a.y }, ...routeOrthogonal(l.s1, l.s2, [...obstacles, ...placed]), { x: l.b.x, y: l.b.y }];
+      m.set(l.sig, path);
+      for (let i = 0; i + 1 < path.length; i++) {
+        const p = path[i], q = path[i + 1], W = 4;
+        placed.push({ x0: Math.min(p.x, q.x) - W, y0: Math.min(p.y, q.y) - W, x1: Math.max(p.x, q.x) + W, y1: Math.max(p.y, q.y) + W });
+      }
+    }
+    return m;
+  }, [links, obstacles, routed]);
+
+  const unrouted = links.filter((l) => !routed.has(l.sig)).length;
 
   function toggleRoute(sig: string) {
     setRouted((s) => { const n = new Set(s); n.has(sig) ? n.delete(sig) : n.add(sig); return n; });
   }
-  const routeAll = () => { setRouted(new Set(rats.map((r) => r.sig))); ucp.setStatus(`Routed ${rats.length} traces`); };
+  const routeAll = () => { setRouted(new Set(links.map((l) => l.sig))); ucp.setStatus(`Routed ${links.length} traces`); };
   const ripUp = () => { setRouted(new Set()); ucp.setStatus("Ripped up all traces"); };
 
   return (
@@ -93,10 +107,10 @@ export function PcbView() {
           <button className="btn" onClick={routeAll}>Route all</button>
           <button className="btn" onClick={ripUp}>Rip up</button>
           <button className="btn" onClick={() => { const r = runDrc(ucp.project); setDrc(r); ucp.setStatus(`DRC: ${r.errors} errors, ${r.unrouted} unrouted`); }}>Run DRC</button>
-          <button className="btn primary" onClick={() => { const tr = rats.filter((r) => routed.has(r.sig)); downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr.map((r) => r.path)), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} traces)`); }}>Export Gerber</button>
+          <button className="btn primary" onClick={() => { const tr = [...routedPaths.values()]; downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} traces)`); }}>Export Gerber</button>
         </>
       } />
-      <p className="panel-sub">Посадочные места из модели ({fps.length}); разведено {rats.length - unrouted}/{rats.length} дорожек — клик по связи трассирует/распускает.</p>
+      <p className="panel-sub">Посадочные места из модели ({fps.length}); разведено {links.length - unrouted}/{links.length} дорожек — клик по связи трассирует/распускает.</p>
       <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 14 }}>
         <div className="card" style={{ display: "grid", gap: 8, alignContent: "start" }}>
           <div className="muted" style={{ fontSize: 11 }}>LAYERS</div>
@@ -128,19 +142,19 @@ export function PcbView() {
         <div className="card" style={{ padding: 0 }}>
           <svg width="100%" height="420" viewBox="0 0 440 340" style={{ background: "#0a0e0a", display: "block" }}>
             {vis.Edge && <rect x={40} y={40} width={360} height={260} fill="none" stroke={LAYERS[3].color} strokeWidth="2" rx={6} />}
-            {rats.map((r, i) => {
-              const isRouted = routed.has(r.sig);
-              if (isRouted) {
+            {links.map((l, i) => {
+              const path = routedPaths.get(l.sig);
+              if (path) {
                 if (!vis.FCu) return null;
                 return (
-                  <polyline key={i} points={r.path.map((p) => `${p.x},${p.y}`).join(" ")}
+                  <polyline key={i} points={path.map((p) => `${p.x},${p.y}`).join(" ")}
                     fill="none" stroke={LAYERS[0].color} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"
-                    style={{ cursor: "pointer" }} onClick={() => toggleRoute(r.sig)} />
+                    style={{ cursor: "pointer" }} onClick={() => toggleRoute(l.sig)} />
                 );
               }
               return ratsnest ? (
-                <line key={i} x1={r.a.x} y1={r.a.y} x2={r.b.x} y2={r.b.y} stroke="#3fb950" strokeWidth="1.5" strokeDasharray="3 3"
-                  style={{ cursor: "pointer" }} onClick={() => toggleRoute(r.sig)} />
+                <line key={i} x1={l.a.x} y1={l.a.y} x2={l.b.x} y2={l.b.y} stroke="#3fb950" strokeWidth="1.5" strokeDasharray="3 3"
+                  style={{ cursor: "pointer" }} onClick={() => toggleRoute(l.sig)} />
               ) : null;
             })}
             {fps.map((f) => {
