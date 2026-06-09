@@ -12,19 +12,41 @@ import {
   type SchComponent, type UcpProject,
 } from "./project.ts";
 
+const LS_PROJECT = "ucp.project";
+const LS_THEME = "ucp.theme";
+
+function loadStoredProject(): UcpProject {
+  try {
+    const raw = localStorage.getItem(LS_PROJECT);
+    if (raw) return deserialize(raw);
+  } catch { /* ignore corrupt storage */ }
+  return emptyProject();
+}
+
 export function App() {
-  const [project, setProject] = useState<UcpProject>(() => emptyProject());
+  const [project, setProject] = useState<UcpProject>(loadStoredProject);
   const [modified, setModified] = useState(false);
   const [selected, setSelected] = useState<ModuleKind | null>(null);
-  const [theme, setThemeState] = useState<"dark" | "light">("dark");
+  const [theme, setThemeState] = useState<"dark" | "light">(
+    () => (localStorage.getItem(LS_THEME) === "light" ? "light" : "dark"));
   const [treeVisible, setTreeVisible] = useState(true);
   const [status, setStatusState] = useState("New project created");
   const [dialog, setDialog] = useState<"about" | "shortcuts" | null>(null);
   const clearTimer = useRef<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const firstRender = useRef(true);
 
-  useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem(LS_THEME, theme); }, [theme]);
   useEffect(() => { void initCore(); }, []);
+
+  // Автосохранение проекта в localStorage (debounced) — переживает перезагрузку.
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(LS_PROJECT, serialize(project)); } catch { /* quota */ }
+    }, 800);
+    return () => window.clearTimeout(t);
+  }, [project]);
 
   const setStatus = useCallback((msg: string) => {
     setStatusState(msg);
