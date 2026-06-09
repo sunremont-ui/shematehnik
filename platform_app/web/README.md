@@ -23,17 +23,19 @@
 
 | Модуль | Что работает |
 |--------|--------------|
-| Schematic | drag&drop компонентов (привязка к сетке), multi-pin (U=6 выводов), рисование проводов |
-| Netlist | цепи из реальных проводов (union-find), экспорт `.net` |
-| PCB | посадочные места + ratsnest из модели, **DRC** (висящие выводы/цепи), экспорт **Gerber** (RS-274X) |
+| Schematic | drag&drop компонентов, multi-pin (U=6), рисование проводов с **A*-разводкой** (объезд корпусов), **ERC** |
+| Netlist | цепи из проводов (union-find), экспорт `.net` |
+| PCB | футпринты + ratsnest; **трассировка A*** (объезд), последовательная + **двухслойная** F.Cu/B.Cu с vias; **DRC**; экспорт **Gerber** (RS-274X) |
 | 3D Editor | изометрический рендер платы с компонентами |
 | Part Editor | настоящая **CSG** (union/subtract/intersect) в WASM с затенением |
 | PID Tuner | живой график переходного процесса, метрики |
 | SPICE | RC-транзиент из ядра, осциллограмма V(in)/V(out) |
 | CRC Calculator | CRC-8/16/32 (реальный расчёт ядром) |
-| File | Save/Open `.ucp`, автосейв в localStorage, undo/redo |
+| File | Save/Open `.ucp`, **импорт** `.net` и `.kicad_sch` (компоненты+цепи), автосейв, undo/redo |
 
 Остальные модули (Protocol, CodeGen-экспортёры, UI Designer, AI, OTA, Firmware, Agent) — интерактивные виды на демо-данных.
+
+Роутер `src/routing.ts` (A* с объездом препятствий) — общий для Schematic и PCB; см. скилл `/ucp-web-route`.
 
 ## Запуск
 

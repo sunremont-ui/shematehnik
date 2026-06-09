@@ -4,6 +4,14 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-10] update | Web Frontend — A* routing, layers, KiCad import
+
+- Роутер `src/routing.ts`: A* по сетке с объездом препятствий (`routeOrthogonal`/`routeOrthogonalEx`) — общий для Schematic (объезд корпусов) и PCB (объезд футпринтов)
+- PCB: последовательная разводка (уложенные дорожки = препятствия) + **двухслойная** F.Cu/B.Cu с переходными отверстиями; Schematic-провода и ERC-подсветка висящих выводов
+- Импорт `.kicad_sch`: компоненты с раскладкой + цепи по геометрии (`lib_symbols` × трансформация инстанса → union-find проводов); + `.net` (полный)
+- Обновлены [Web Frontend](modules/web_frontend.md), скилл `/ucp-web-route` (PCB на A*); новые скиллы `/ucp-web-route`, `/ucp-web-module`, `/git`
+- Тесты: 29 Vitest + 2 Playwright; коммиты `0c608a0`→`d7776ed`
+
 ## [2026-06-10] update | Web Frontend — WASM core, shared model, tests/CI/deploy
 
 - Веб-фронтенд доведён с мок-демо до прод-готовности; обновлена [Web Frontend](modules/web_frontend.md)

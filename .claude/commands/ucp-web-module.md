@@ -24,7 +24,10 @@ truth, held in the store (`src/store.ts` `useUcp()`):
   `addWire` / `removeWire` / `loadProject`. These feed undo/redo + autosave
   automatically — do NOT keep a parallel copy in local state.
 - Pins: `pinsOf(kind)` (U=6, else 2) + `pinOffset(kind, pin)`.
-- Nets/DRC/export: `computeNets`, `runDrc`, `exportNetlist`, `importNetlist`.
+- Nets/DRC/export/import: `computeNets`, `runDrc`, `exportNetlist`,
+  `importNetlist` (.net), `importKicadSch` (.kicad_sch — components + nets
+  traced from wire geometry). Orthogonal routing: `routeOrthogonal`
+  (`src/routing.ts`, `/ucp-web-route`).
 
 A module that derives from the model (Netlist, PCB, 3D, DRC) should
 `useMemo` over `ucp.project` so it updates live as the schematic changes.
