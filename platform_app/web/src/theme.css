@@ -339,3 +339,37 @@ pre.code {
 ::-webkit-scrollbar-track { background: var(--panel); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ---------- Accessibility ---------- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+.tree-row:focus-visible { outline-offset: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  body { font-size: 12px; }
+  /* дерево становится выезжающей панелью поверх рабочей области */
+  .app-body { grid-template-columns: 1fr; position: relative; }
+  .app-body .tree {
+    position: absolute;
+    z-index: 40;
+    top: 0; bottom: 0; left: 0;
+    width: 240px;
+    box-shadow: 4px 0 16px var(--shadow);
+  }
+  .workspace { padding: 12px; }
+  /* многоколоночные панели схлопываются в одну колонку */
+  .grid.cols2, .grid.cols3 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .menubar .brand { padding: 0 6px; }
+  .statusbar .perm:last-child { display: none; }
+}

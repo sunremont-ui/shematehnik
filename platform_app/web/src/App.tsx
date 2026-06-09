@@ -137,6 +137,7 @@ export function App() {
       </div>
       <input
         ref={fileInput} type="file" accept=".ucp,application/json" style={{ display: "none" }}
+        aria-label="Open .ucp project file"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) openFile(f); e.target.value = ""; }}
       />
       {dialog === "about" && <AboutDialog onClose={() => setDialog(null)} />}

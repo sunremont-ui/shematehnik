@@ -58,11 +58,12 @@ export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
   };
 
   return (
-    <div className="menubar" ref={barRef}>
+    <div className="menubar" ref={barRef} role="menubar">
       <span className="brand">⊞ UCP</span>
       {Object.entries(menus).map(([name, items]) => (
         <div key={name} className={`menu${open === name ? " open" : ""}`}>
           <button
+            aria-haspopup="true" aria-expanded={open === name}
             onClick={() => setOpen(open === name ? null : name)}
             onMouseEnter={() => open && setOpen(name)}
           >
