@@ -132,6 +132,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Unit tests (Vitest)
+        run: npm test
+
       - name: Install Emscripten
         run: |
           git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
@@ -151,6 +154,12 @@ jobs:
 
       - name: Verify WASM copied into dist
         run: test -f dist/wasm/ucp_core.wasm
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke (Playwright)
+        run: npm run test:e2e
 
       - name: Upload web bundle
         uses: actions/upload-artifact@v4

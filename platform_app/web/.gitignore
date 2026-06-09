@@ -7,3 +7,8 @@ dist
 # WASM build artifacts (built locally / in CI via `npm run build:wasm`)
 public/wasm/
 wasm/build/
+
+# test output
+playwright-report/
+test-results/
+.last-run.json
