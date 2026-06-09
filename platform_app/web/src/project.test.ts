@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist } from "./project.ts";
+import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist } from "./project.ts";
 
 describe("project serialize/deserialize", () => {
   it("round-trips an empty project", () => {
@@ -71,6 +71,23 @@ describe("computeNets / exportNetlist", () => {
     expect(txt).toContain('(node (ref "R1") (pin "2"))');
     // сбалансированные скобки
     expect((txt.match(/\(/g) ?? []).length).toBe((txt.match(/\)/g) ?? []).length);
+  });
+
+  it("import(export) round-trips components and nets", () => {
+    const p = emptyProject();
+    const back = importNetlist(exportNetlist(p), "RT");
+    expect(back.components.map((c) => c.ref).sort()).toEqual(["C1", "R1", "U1"]);
+    expect(computeNets(back)).toHaveLength(1);           // same single net
+    expect(back.components.find((c) => c.ref === "R1")?.value).toBe("10k");
+  });
+
+  it("parses a KiCad-style netlist and infers kinds", () => {
+    const kicad = `(export (version "E")
+      (components (comp (ref "R5") (value "1k")) (comp (ref "U2") (value "ATmega")))
+      (nets (net (name "/N") (node (ref "R5") (pin "2")) (node (ref "U2") (pin "1")))))`;
+    const p = importNetlist(kicad);
+    expect(p.components.map((c) => `${c.ref}:${c.kind}`)).toEqual(["R5:R", "U2:U"]);
+    expect(p.wires).toEqual([{ from: { ref: "R5", pin: "2" }, to: { ref: "U2", pin: "1" } }]);
   });
 });
 

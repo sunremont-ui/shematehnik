@@ -156,6 +156,65 @@ export function exportNetlist(p: UcpProject): string {
   return lines.join("\n");
 }
 
+// ---------- Импорт нетлиста KiCad/UCP (S-expression) ----------
+type Sexpr = string | Sexpr[];
+
+function parseSexpr(s: string): Sexpr {
+  let i = 0;
+  const skip = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+  function parse(): Sexpr {
+    skip();
+    if (s[i] === "(") {
+      i++; const list: Sexpr[] = [];
+      while (i < s.length && s[i] !== ")") { list.push(parse()); skip(); }
+      i++; return list;
+    }
+    if (s[i] === '"') {
+      i++; let str = "";
+      while (i < s.length && s[i] !== '"') { if (s[i] === "\\") i++; str += s[i++]; }
+      i++; return str;
+    }
+    let a = ""; while (i < s.length && !/[\s()]/.test(s[i])) a += s[i++];
+    return a;
+  }
+  skip(); return parse();
+}
+
+const sFind = (n: Sexpr | undefined, tag: string): Sexpr[] | undefined =>
+  Array.isArray(n) ? (n.find((c) => Array.isArray(c) && c[0] === tag) as Sexpr[] | undefined) : undefined;
+const sAll = (n: Sexpr | undefined, tag: string): Sexpr[][] =>
+  Array.isArray(n) ? (n.filter((c) => Array.isArray(c) && c[0] === tag) as Sexpr[][]) : [];
+const sVal = (n: Sexpr | undefined, tag: string): string => {
+  const c = n ? sFind(n, tag) : undefined;
+  return c && typeof c[1] === "string" ? c[1] : "";
+};
+
+const KINDS = new Set(["R", "C", "L", "D", "Q", "U"]);
+const kindOfRef = (ref: string): string => (KINDS.has(ref[0]?.toUpperCase()) ? ref[0].toUpperCase() : "U");
+
+// Парсит netlist (формат exportNetlist / KiCad eeschema) в UcpProject.
+// Провода строятся как звезда внутри каждой цепи; пины вне модели отбрасываются.
+export function importNetlist(text: string, name = "Imported"): UcpProject {
+  const root = parseSexpr(text);
+  const compsNode = sFind(root, "components");
+  const components: SchComponent[] = sAll(compsNode, "comp").map((c, i) => {
+    const ref = sVal(c, "ref") || `?${i}`;
+    const kind = kindOfRef(ref);
+    return { id: `i${i}`, ref, kind, value: sVal(c, "value"), x: 120 + (i % 4) * 110, y: 100 + Math.floor(i / 4) * 100 };
+  });
+  if (components.length === 0) throw new Error("No components in netlist");
+
+  const validPin = new Map(components.map((c) => [c.ref, new Set(pinsOf(c.kind))]));
+  const wires: SchWire[] = [];
+  for (const net of sAll(sFind(root, "nets"), "net")) {
+    const nodes = sAll(net, "node")
+      .map((nd) => ({ ref: sVal(nd, "ref"), pin: sVal(nd, "pin") }))
+      .filter((p) => validPin.get(p.ref)?.has(p.pin));
+    for (let j = 1; j < nodes.length; j++) wires.push({ from: nodes[0], to: nodes[j] }); // звезда
+  }
+  return { version: 1, name, components, wires };
+}
+
 // Следующий refdes для типа (R1→R2…), исходя из уже занятых.
 export function nextRef(components: SchComponent[], kind: string): string {
   let max = 0;

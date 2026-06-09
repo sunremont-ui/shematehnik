@@ -8,7 +8,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import { AboutDialog, ShortcutsDialog } from "./components/Dialogs.tsx";
 import { initCore } from "./core/ucpCore.ts";
 import {
-  emptyProject, serialize, deserialize, nextRef,
+  emptyProject, serialize, deserialize, importNetlist, nextRef,
   type SchComponent, type UcpProject,
 } from "./project.ts";
 
@@ -111,13 +111,14 @@ export function App() {
   }, [project, setStatus]);
 
   const openFile = useCallback((file: File) => {
+    const isNet = /\.net$/i.test(file.name);
     file.text().then((text) => {
       try {
-        const p = deserialize(text);
+        const p = isNet ? importNetlist(text, file.name.replace(/\.net$/i, "")) : deserialize(text);
         setProject(p); setModified(false);
-        setStatus(`Opened: ${file.name} (${p.components.length} components)`);
+        setStatus(`${isNet ? "Imported" : "Opened"}: ${file.name} (${p.components.length} comp, ${p.wires.length} wires)`);
       } catch {
-        setStatus(`Error: ${file.name} is not a valid .ucp file`);
+        setStatus(`Error: ${file.name} — invalid ${isNet ? "netlist" : ".ucp"}`);
       }
     });
   }, [setStatus]);
@@ -200,7 +201,7 @@ export function App() {
         <StatusBar />
       </div>
       <input
-        ref={fileInput} type="file" accept=".ucp,application/json" style={{ display: "none" }}
+        ref={fileInput} type="file" accept=".ucp,.net,application/json" style={{ display: "none" }}
         aria-label="Open .ucp project file"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) openFile(f); e.target.value = ""; }}
       />
