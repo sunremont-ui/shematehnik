@@ -1,7 +1,8 @@
 # ============================================================
 # WASM-сборка вычислительного ядра UCP (Emscripten + embind).
 # Требует emsdk. Сборка: см. build.sh / README.md.
-# Выход: ../src/core/generated/ucp_core.js + ucp_core.wasm (ES-модуль).
+# Выход: ../public/wasm/ucp_core.js + ucp_core.wasm (ES-модуль).
+# В public/, чтобы Vite копировал артефакты в dist/ дословно (нужно для прода).
 # ============================================================
 cmake_minimum_required(VERSION 3.20)
 project(ucp_core_wasm CXX)
@@ -27,5 +28,5 @@ target_link_options(ucp_core PRIVATE
 set_target_properties(ucp_core PROPERTIES
     OUTPUT_NAME "ucp_core"
     SUFFIX ".js"
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../src/core/generated"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../public/wasm"
 )

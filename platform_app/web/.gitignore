@@ -5,5 +5,5 @@ dist
 *.tsbuildinfo
 
 # WASM build artifacts (built locally / in CI via `npm run build:wasm`)
-src/core/generated/
+public/wasm/
 wasm/build/

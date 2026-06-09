@@ -1,6 +1,6 @@
 // ============================================================
 // ucpCore — единая точка доступа к вычислительному ядру UCP.
-// Пытается загрузить WASM-сборку (wasm/ → src/core/generated/),
+// Пытается загрузить WASM-сборку (wasm/ → public/wasm/),
 // иначе использует идентичный JS-фолбэк. Алгоритмы 1:1 с десктопом.
 // ============================================================
 import { useEffect, useState } from "react";
@@ -39,7 +39,9 @@ export function initCore(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
     try {
-      const path = "./generated/ucp_core.js";
+      // Артефакт лежит в public/wasm/ → копируется в dist/ дословно.
+      // Абсолютный путь с BASE_URL работает и в dev, и в проде.
+      const path = `${import.meta.env.BASE_URL}wasm/ucp_core.js`;
       const mod = await import(/* @vite-ignore */ path);
       const factory = mod.default ?? mod.createUcpCore;
       wasm = await factory();
