@@ -37,6 +37,7 @@ export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
       { label: "New Project", shortcut: "Ctrl+N", onClick: () => ucp.newProject() },
       { label: "Open…", shortcut: "Ctrl+O", onClick: onOpen },
       { label: "Import netlist (.net)…", onClick: onOpen },
+      { label: "Import KiCad (.kicad_sch)…", onClick: onOpen },
       { label: "Save", shortcut: "Ctrl+S", onClick: onSave },
       { label: "", sep: true },
       { label: "Exit", shortcut: "Ctrl+Q", onClick: () => ucp.setStatus("Exit недоступен в браузере") },

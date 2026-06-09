@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist } from "./project.ts";
+import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist, importKicadSch } from "./project.ts";
 
 describe("project serialize/deserialize", () => {
   it("round-trips an empty project", () => {
@@ -79,6 +79,20 @@ describe("computeNets / exportNetlist", () => {
     expect(back.components.map((c) => c.ref).sort()).toEqual(["C1", "R1", "U1"]);
     expect(computeNets(back)).toHaveLength(1);           // same single net
     expect(back.components.find((c) => c.ref === "R1")?.value).toBe("10k");
+  });
+
+  it("imports components from a .kicad_sch (kind, value; skips #PWR)", () => {
+    const sch = `(kicad_sch
+      (symbol (lib_id "Device:R") (at 100 50 0)
+        (property "Reference" "R1") (property "Value" "10k"))
+      (symbol (lib_id "Device:C") (at 150 50 0)
+        (property "Reference" "C1") (property "Value" "100n"))
+      (symbol (lib_id "power:GND") (at 120 80 0)
+        (property "Reference" "#PWR01") (property "Value" "GND")))`;
+    const p = importKicadSch(sch);
+    expect(p.components.map((c) => `${c.ref}:${c.kind}:${c.value}`)).toEqual(["R1:R:10k", "C1:C:100n"]);
+    expect(p.components[0].x).not.toEqual(p.components[1].x); // раскладка сохранена
+    expect(p.wires).toEqual([]);
   });
 
   it("parses a KiCad-style netlist and infers kinds", () => {

@@ -8,7 +8,7 @@ import { StatusBar } from "./components/StatusBar.tsx";
 import { AboutDialog, ShortcutsDialog } from "./components/Dialogs.tsx";
 import { initCore } from "./core/ucpCore.ts";
 import {
-  emptyProject, serialize, deserialize, importNetlist, nextRef,
+  emptyProject, serialize, deserialize, importNetlist, importKicadSch, nextRef,
   type SchComponent, type UcpProject,
 } from "./project.ts";
 
@@ -111,14 +111,18 @@ export function App() {
   }, [project, setStatus]);
 
   const openFile = useCallback((file: File) => {
-    const isNet = /\.net$/i.test(file.name);
+    const base = file.name.replace(/\.[^.]+$/, "");
+    const kind = /\.net$/i.test(file.name) ? "net" : /\.kicad_sch$/i.test(file.name) ? "sch" : "ucp";
     file.text().then((text) => {
       try {
-        const p = isNet ? importNetlist(text, file.name.replace(/\.net$/i, "")) : deserialize(text);
+        const p = kind === "net" ? importNetlist(text, base)
+          : kind === "sch" ? importKicadSch(text, base)
+          : deserialize(text);
         setProject(p); setModified(false);
-        setStatus(`${isNet ? "Imported" : "Opened"}: ${file.name} (${p.components.length} comp, ${p.wires.length} wires)`);
+        const verb = kind === "ucp" ? "Opened" : "Imported";
+        setStatus(`${verb}: ${file.name} (${p.components.length} comp, ${p.wires.length} wires)`);
       } catch {
-        setStatus(`Error: ${file.name} — invalid ${isNet ? "netlist" : ".ucp"}`);
+        setStatus(`Error: ${file.name} — invalid ${kind === "ucp" ? ".ucp" : kind === "net" ? "netlist" : ".kicad_sch"}`);
       }
     });
   }, [setStatus]);
@@ -201,7 +205,7 @@ export function App() {
         <StatusBar />
       </div>
       <input
-        ref={fileInput} type="file" accept=".ucp,.net,application/json" style={{ display: "none" }}
+        ref={fileInput} type="file" accept=".ucp,.net,.kicad_sch,application/json" style={{ display: "none" }}
         aria-label="Open .ucp project file"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) openFile(f); e.target.value = ""; }}
       />

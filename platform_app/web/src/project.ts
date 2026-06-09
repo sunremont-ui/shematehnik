@@ -215,6 +215,39 @@ export function importNetlist(text: string, name = "Imported"): UcpProject {
   return { version: 1, name, components, wires };
 }
 
+// Импорт схемы KiCad (.kicad_sch): извлекает компоненты с их раскладкой.
+// Цепи не извлекаются (геометрия пинов KiCad не маппится на нашу модель —
+// для связности используйте .net или разведите вручную/ERC).
+export function importKicadSch(text: string, name = "KiCad import"): UcpProject {
+  const root = parseSexpr(text);
+  // инстансы символов — прямые дети корня (lib_symbols вложены отдельно)
+  const syms = sAll(root, "symbol").filter((s) => sFind(s, "lib_id"));
+  const raw = syms.map((s) => {
+    const props = sAll(s, "property");
+    const prop = (n: string) => { const p = props.find((p) => p[1] === n); return p && typeof p[2] === "string" ? p[2] : ""; };
+    const at = sFind(s, "at");
+    return {
+      ref: prop("Reference"),
+      value: prop("Value"),
+      x: at ? Number(at[1]) || 0 : 0,
+      y: at ? Number(at[2]) || 0 : 0,
+    };
+  }).filter((c) => c.ref && !c.ref.startsWith("#")); // #PWR/#FLG — питание, не детали
+  if (raw.length === 0) throw new Error("No symbols in .kicad_sch");
+
+  // нормализуем координаты KiCad (мм, Y вниз) в область канвы
+  const xs = raw.map((c) => c.x), ys = raw.map((c) => c.y);
+  const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
+  const sx = (v: number) => maxx > minx ? 120 + ((v - minx) / (maxx - minx)) * 240 : 240;
+  const sy = (v: number) => maxy > miny ? 100 + ((v - miny) / (maxy - miny)) * 200 : 200;
+
+  const components: SchComponent[] = raw.map((c, i) => ({
+    id: `k${i}`, ref: c.ref, kind: kindOfRef(c.ref), value: c.value,
+    x: Math.round(sx(c.x)), y: Math.round(sy(c.y)),
+  }));
+  return { version: 1, name, components, wires: [] };
+}
+
 // Следующий refdes для типа (R1→R2…), исходя из уже занятых.
 export function nextRef(components: SchComponent[], kind: string): string {
   let max = 0;
