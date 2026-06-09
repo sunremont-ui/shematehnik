@@ -9,6 +9,7 @@ Catalog of all wiki pages, organized by category.
 | [Overview](overview.md) | What this project is and why it exists |
 | [Philosophy](philosophy.md) | Design principles, values, and approach |
 | [Roadmap](roadmap.md) | Version plan v0.1 → v2.0 (ENTIRE ROADMAP COMPLETE) |
+| [Roadmap — Web](roadmap-web.md) | Веб-фронтенд: фазы 0–6 done, фаза 7+ (fab-комплект, SPICE, 3D) |
 
 ## Architecture
 
