@@ -14,7 +14,7 @@ if(NOT EMSCRIPTEN)
     message(FATAL_ERROR "Configure with emcmake: `emcmake cmake -B build`")
 endif()
 
-add_executable(ucp_core ucp_core.cpp bindings.cpp)
+add_executable(ucp_core ucp_core.cpp ucp_csg.cpp bindings.cpp)
 
 target_link_options(ucp_core PRIVATE
     "-lembind"

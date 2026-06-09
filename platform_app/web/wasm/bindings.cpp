@@ -3,6 +3,7 @@
 // Собирается в src/core/generated/ucp_core.{js,wasm} (ES-модуль).
 // ============================================================
 #include "ucp_core.hpp"
+#include "ucp_csg.hpp"
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 
@@ -31,6 +32,12 @@ static std::vector<int> connectedComponents(int n, val edges) {
     return ucp::connected_components(n, e);
 }
 
+static std::vector<double> csgBoxes(int op,
+        double cx, double cy, double cz, double rx, double ry, double rz,
+        double dx, double dy, double dz, double ex, double ey, double ez) {
+    return ucp::csg_boxes(op, cx, cy, cz, rx, ry, rz, dx, dy, dz, ex, ey, ez);
+}
+
 EMSCRIPTEN_BINDINGS(ucp_core) {
     register_vector<double>("VectorDouble");
     register_vector<int>("VectorInt");
@@ -38,4 +45,5 @@ EMSCRIPTEN_BINDINGS(ucp_core) {
     function("pidStep", &pidStep);
     function("rcLowpass", &rcLowpass);
     function("connectedComponents", &connectedComponents);
+    function("csgBoxes", &csgBoxes);
 }
