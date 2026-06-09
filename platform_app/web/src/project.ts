@@ -215,37 +215,100 @@ export function importNetlist(text: string, name = "Imported"): UcpProject {
   return { version: 1, name, components, wires };
 }
 
-// Импорт схемы KiCad (.kicad_sch): извлекает компоненты с их раскладкой.
-// Цепи не извлекаются (геометрия пинов KiCad не маппится на нашу модель —
-// для связности используйте .net или разведите вручную/ERC).
+// Рекурсивно собрать пины (number + относительная точка подключения `at`).
+function collectPins(sym: Sexpr): { num: string; x: number; y: number }[] {
+  const out: { num: string; x: number; y: number }[] = [];
+  if (!Array.isArray(sym)) return out;
+  for (const child of sym) {
+    if (!Array.isArray(child)) continue;
+    if (child[0] === "pin") {
+      const at = sFind(child, "at"), num = sFind(child, "number");
+      if (at) out.push({ num: num && typeof num[1] === "string" ? num[1] : String(out.length + 1), x: Number(at[1]) || 0, y: Number(at[2]) || 0 });
+    } else if (child[0] === "symbol") {
+      out.push(...collectPins(child)); // вложенные под-символы
+    }
+  }
+  return out;
+}
+
+// Импорт схемы KiCad (.kicad_sch): компоненты с раскладкой + цепи по прямой
+// проводной связности (геометрия пинов из lib_symbols + трансформация инстанса).
+// Ограничение: net-метки / power-символы / иерархия НЕ разрешаются — только
+// пины, физически соединённые проводами (wire). Поворот/зеркало — best-effort.
 export function importKicadSch(text: string, name = "KiCad import"): UcpProject {
   const root = parseSexpr(text);
-  // инстансы символов — прямые дети корня (lib_symbols вложены отдельно)
+
+  // 1) пины библиотечных символов: lib_id → [{num, x, y}] (Y-up, мм)
+  const libPins = new Map<string, { num: string; x: number; y: number }[]>();
+  const lib = sFind(root, "lib_symbols");
+  if (lib) for (const s of sAll(lib, "symbol")) if (typeof s[1] === "string") libPins.set(s[1], collectPins(s));
+
+  // 2) инстансы → компоненты + абсолютные точки подключения пинов
   const syms = sAll(root, "symbol").filter((s) => sFind(s, "lib_id"));
-  const raw = syms.map((s) => {
+  interface Inst { ref: string; value: string; x: number; y: number; pins: { num: string; x: number; y: number }[]; }
+  const insts: Inst[] = [];
+  for (const s of syms) {
     const props = sAll(s, "property");
     const prop = (n: string) => { const p = props.find((p) => p[1] === n); return p && typeof p[2] === "string" ? p[2] : ""; };
+    const ref = prop("Reference");
+    if (!ref || ref.startsWith("#")) continue;          // #PWR/#FLG — не детали
     const at = sFind(s, "at");
-    return {
-      ref: prop("Reference"),
-      value: prop("Value"),
-      x: at ? Number(at[1]) || 0 : 0,
-      y: at ? Number(at[2]) || 0 : 0,
-    };
-  }).filter((c) => c.ref && !c.ref.startsWith("#")); // #PWR/#FLG — питание, не детали
-  if (raw.length === 0) throw new Error("No symbols in .kicad_sch");
+    const ix = at ? Number(at[1]) || 0 : 0, iy = at ? Number(at[2]) || 0 : 0;
+    const rot = (at && Number(at[3])) || 0;
+    const mir = sFind(s, "mirror");
+    const mx = mir && mir[1] === "y" ? -1 : 1, my = mir && mir[1] === "x" ? -1 : 1;
+    const c = Math.cos(rot * Math.PI / 180), sn = Math.sin(rot * Math.PI / 180);
+    const lp = libPins.get(sVal(s, "lib_id")) ?? [];
+    const pins = lp.map((p) => {
+      const lx = p.x * mx, ly = p.y * my;
+      const rx = lx * c - ly * sn, ry = lx * sn + ly * c;   // поворот в lib-координатах (Y-up)
+      return { num: p.num, x: ix + rx, y: iy - ry };        // в схемные (Y-down)
+    });
+    insts.push({ ref, value: prop("Value"), x: ix, y: iy, pins });
+  }
+  if (insts.length === 0) throw new Error("No symbols in .kicad_sch");
 
-  // нормализуем координаты KiCad (мм, Y вниз) в область канвы
-  const xs = raw.map((c) => c.x), ys = raw.map((c) => c.y);
+  // 3) union-find по совпадающим точкам (пины + концы проводов)
+  const key = (x: number, y: number) => `${Math.round(x * 100)},${Math.round(y * 100)}`;
+  const parent = new Map<string, string>();
+  const find = (k: string): string => { let r = k; while (parent.get(r) && parent.get(r) !== r) r = parent.get(r)!; parent.set(k, r); return r; };
+  const ensure = (k: string) => { if (!parent.has(k)) parent.set(k, k); };
+  const uni = (a: string, b: string) => { ensure(a); ensure(b); parent.set(find(a), find(b)); };
+  for (const w of sAll(root, "wire")) {
+    const pts = sFind(w, "pts"); if (!pts) continue;
+    const xy = sAll(pts, "xy");
+    for (let i = 0; i + 1 < xy.length; i++) uni(key(Number(xy[i][1]), Number(xy[i][2])), key(Number(xy[i + 1][1]), Number(xy[i + 1][2])));
+  }
+
+  // 4) цепи = группы пинов по корню union-find
+  const netOf = new Map<string, string[]>();   // root → ["R1.1", …]
+  for (const inst of insts) for (const p of inst.pins) {
+    const k = key(p.x, p.y); ensure(k);
+    const r = find(k);
+    (netOf.get(r) ?? netOf.set(r, []).get(r)!).push(`${inst.ref}.${p.num}`);
+  }
+  const wires: SchWire[] = [];
+  for (const nodes of netOf.values()) {
+    if (nodes.length < 2) continue;
+    for (let i = 1; i < nodes.length; i++) {
+      const [r0, p0] = nodes[0].split("."), [r1, p1] = nodes[i].split(".");
+      wires.push({ from: { ref: r0, pin: p0 }, to: { ref: r1, pin: p1 } });
+    }
+  }
+
+  // 5) компоненты с раскладкой (нормализация координат в область канвы)
+  const xs = insts.map((c) => c.x), ys = insts.map((c) => c.y);
   const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
-  const sx = (v: number) => maxx > minx ? 120 + ((v - minx) / (maxx - minx)) * 240 : 240;
-  const sy = (v: number) => maxy > miny ? 100 + ((v - miny) / (maxy - miny)) * 200 : 200;
-
-  const components: SchComponent[] = raw.map((c, i) => ({
-    id: `k${i}`, ref: c.ref, kind: kindOfRef(c.ref), value: c.value,
-    x: Math.round(sx(c.x)), y: Math.round(sy(c.y)),
+  const nx = (v: number) => maxx > minx ? 120 + ((v - minx) / (maxx - minx)) * 240 : 240;
+  const ny = (v: number) => maxy > miny ? 100 + ((v - miny) / (maxy - miny)) * 200 : 200;
+  const refs = new Set(insts.map((c) => c.ref));
+  const components: SchComponent[] = insts.map((c, i) => ({
+    id: `k${i}`, ref: c.ref, kind: kindOfRef(c.ref), value: c.value, x: Math.round(nx(c.x)), y: Math.round(ny(c.y)),
   }));
-  return { version: 1, name, components, wires: [] };
+  // отбрасываем цепи на выводы вне модели (pinsOf) — наша модель фиксирована
+  const valid = new Map(components.map((c) => [c.ref, new Set(pinsOf(c.kind))]));
+  const keptWires = wires.filter((w) => refs.has(w.from.ref) && refs.has(w.to.ref) && valid.get(w.from.ref)?.has(w.from.pin) && valid.get(w.to.ref)?.has(w.to.pin));
+  return { version: 1, name, components, wires: keptWires };
 }
 
 // Следующий refdes для типа (R1→R2…), исходя из уже занятых.

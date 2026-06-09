@@ -81,18 +81,19 @@ describe("computeNets / exportNetlist", () => {
     expect(back.components.find((c) => c.ref === "R1")?.value).toBe("10k");
   });
 
-  it("imports components from a .kicad_sch (kind, value; skips #PWR)", () => {
+  it("imports components + wired nets from a .kicad_sch (skips #PWR)", () => {
     const sch = `(kicad_sch
-      (symbol (lib_id "Device:R") (at 100 50 0)
-        (property "Reference" "R1") (property "Value" "10k"))
-      (symbol (lib_id "Device:C") (at 150 50 0)
-        (property "Reference" "C1") (property "Value" "100n"))
-      (symbol (lib_id "power:GND") (at 120 80 0)
-        (property "Reference" "#PWR01") (property "Value" "GND")))`;
+      (lib_symbols
+        (symbol "Device:R" (symbol "R_1_1" (pin (at 0 3.81 270) (number "1")) (pin (at 0 -3.81 90) (number "2"))))
+        (symbol "Device:C" (symbol "C_1_1" (pin (at 0 3.81 270) (number "1")) (pin (at 0 -3.81 90) (number "2")))))
+      (symbol (lib_id "Device:R") (at 100 100 0) (property "Reference" "R1") (property "Value" "10k"))
+      (symbol (lib_id "Device:C") (at 100 90 0) (property "Reference" "C1") (property "Value" "100n"))
+      (symbol (lib_id "power:GND") (at 100 110 0) (property "Reference" "#PWR01") (property "Value" "GND"))
+      (wire (pts (xy 100 96.19) (xy 100 93.81))))`;
     const p = importKicadSch(sch);
     expect(p.components.map((c) => `${c.ref}:${c.kind}:${c.value}`)).toEqual(["R1:R:10k", "C1:C:100n"]);
-    expect(p.components[0].x).not.toEqual(p.components[1].x); // раскладка сохранена
-    expect(p.wires).toEqual([]);
+    // провод соединил R1.pin1 (100,96.19) и C1.pin2 (100,93.81)
+    expect(p.wires).toEqual([{ from: { ref: "R1", pin: "1" }, to: { ref: "C1", pin: "2" } }]);
   });
 
   it("parses a KiCad-style netlist and infers kinds", () => {
