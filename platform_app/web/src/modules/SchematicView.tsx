@@ -109,7 +109,7 @@ export function SchematicView() {
               const a = byRef(w.from.ref), b = byRef(w.to.ref);
               if (!a || !b) return null;
               return (
-                <polyline key={i} points={routeWire(a, w.from.pin, b, w.to.pin)} fill="none" stroke="var(--accent-soft)" strokeWidth="2"
+                <polyline key={i} points={routeWire(a, w.from.pin, b, w.to.pin, ((i % 5) - 2) * 8)} fill="none" stroke="var(--accent-soft)" strokeWidth="2"
                   style={{ cursor: wireMode ? "pointer" : "default" }}
                   onClick={(e) => { if (wireMode) { e.stopPropagation(); ucp.removeWire(i); } }} />
               );
@@ -164,23 +164,21 @@ export function SchematicView() {
   );
 }
 
-// Разводка провода: выводы выходят наружу от корпуса; если оба смотрят
-// навстречу — прямая ортогональ, иначе обход сверху (не режет корпуса).
-function routeWire(a: SchComponent, ap: string, b: SchComponent, bp: string): string {
+// Разводка провода: каждый вывод выходит наружу от корпуса коротким стабом,
+// затем Z-маршрут через горизонталь посередине между компонентами
+// (вертикали идут вне корпусов, не пересекая их). offset разносит
+// параллельные провода. Дубли точек схлопываются.
+function routeWire(a: SchComponent, ap: string, b: SchComponent, bp: string, offset = 0): string {
   const p1 = pinPos(a, ap), p2 = pinPos(b, bp);
   const ad = Math.sign(pinOffset(a.kind, ap).dx) || 1;   // сторона вывода (наружу)
   const bd = Math.sign(pinOffset(b.kind, bp).dx) || 1;
-  const dir = Math.sign(p2.x - p1.x) || 1;
-  const facing = ad === dir && bd === -dir;              // оба вывода смотрят навстречу
-  const pts = (a2: { x: number; y: number }[]) => a2.map((p) => `${p.x},${p.y}`).join(" ");
-  if (facing) {
-    const mx = (p1.x + p2.x) / 2;
-    return pts([p1, { x: mx, y: p1.y }, { x: mx, y: p2.y }, p2]);
-  }
-  // обход: выйти наружу из каждого вывода и пройти по каналу над компонентами
-  const ax = p1.x + ad * 16, bx = p2.x + bd * 16;
-  const cy = Math.min(p1.y, p2.y) - 46;
-  return pts([p1, { x: ax, y: p1.y }, { x: ax, y: cy }, { x: bx, y: cy }, { x: bx, y: p2.y }, p2]);
+  const s = 18;
+  const ax = p1.x + ad * s, bx = p2.x + bd * s;
+  const my = Math.round((p1.y + p2.y) / 2) + offset;
+  const raw = [p1, { x: ax, y: p1.y }, { x: ax, y: my }, { x: bx, y: my }, { x: bx, y: p2.y }, p2];
+  const out: { x: number; y: number }[] = [];
+  for (const p of raw) { const last = out[out.length - 1]; if (!last || last.x !== p.x || last.y !== p.y) out.push(p); }
+  return out.map((p) => `${p.x},${p.y}`).join(" ");
 }
 
 function CompSym({ c, selected, onPointerDown }: {
