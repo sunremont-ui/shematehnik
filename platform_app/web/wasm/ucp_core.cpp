@@ -1,5 +1,9 @@
 #include "ucp_core.hpp"
 #include <algorithm>
+#include <cmath>
+#include <functional>
+#include <numeric>
+#include <unordered_map>
 
 namespace ucp {
 
@@ -40,6 +44,48 @@ std::vector<double> pid_step(double kp, double ki, double kd,
         prevErr = err;
         y += (dt / tau) * (gain * u - y);
         out.push_back(y);
+    }
+    return out;
+}
+
+std::vector<double> rc_lowpass(double r, double c, double vinAmp,
+                               double freqHz, double tEnd, int steps) {
+    std::vector<double> out;
+    if (steps <= 0) return out;
+    out.reserve(static_cast<size_t>(steps));
+    const double rc = std::max(1e-12, r * c);
+    const double dt = tEnd / steps;
+    const double w  = 2.0 * M_PI * freqHz;
+    double vout = 0.0;
+    for (int i = 0; i < steps; i++) {
+        double t   = i * dt;
+        double vin = vinAmp * std::sin(w * t);
+        vout += dt * (vin - vout) / rc;   // Euler step
+        out.push_back(vout);
+    }
+    return out;
+}
+
+std::vector<int> connected_components(int n, const std::vector<int>& edges) {
+    std::vector<int> parent(std::max(0, n));
+    std::iota(parent.begin(), parent.end(), 0);
+    std::function<int(int)> find = [&](int x) {
+        while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+        return x;
+    };
+    for (size_t i = 0; i + 1 < edges.size(); i += 2) {
+        int a = edges[i], b = edges[i + 1];
+        if (a < 0 || b < 0 || a >= n || b >= n) continue;
+        parent[find(a)] = find(b);
+    }
+    // Нормализуем id цепей в порядке первого появления.
+    std::unordered_map<int, int> label;
+    std::vector<int> out(static_cast<size_t>(n));
+    for (int i = 0; i < n; i++) {
+        int root = find(i);
+        auto it = label.find(root);
+        if (it == label.end()) { int id = static_cast<int>(label.size()); label[root] = id; out[i] = id; }
+        else out[i] = it->second;
     }
     return out;
 }

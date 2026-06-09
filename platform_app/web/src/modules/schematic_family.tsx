@@ -2,6 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
+import { connectedComponents, rcLowpass, useCoreBackend } from "../core/ucpCore.ts";
+
+function EngineBadge({ backend }: { backend: string }) {
+  return (
+    <span className="chip" title="вычислительное ядро">
+      <span className={`dot ${backend === "wasm" ? "ok" : backend === "js" ? "warn" : ""}`} />
+      engine: {backend}
+    </span>
+  );
+}
 
 // ============================================================
 // Symbol Editor — редактор УГО: символ + редактируемые пины
@@ -114,17 +124,45 @@ export function WireToolView() {
 // ============================================================
 // Netlist — список цепей
 // ============================================================
+// Пины-узлы и соединения (как из Schematic). Цепи вычисляются union-find в ядре.
+const PINS = ["U1.7", "R1.1", "C1.+", "U1.4", "C1.-", "D1.K", "U1.6", "R1.2", "D1.A"];
+const WIRES: [string, string][] = [
+  ["U1.7", "R1.1"], ["R1.1", "C1.+"],          // VCC
+  ["U1.4", "C1.-"], ["C1.-", "D1.K"],          // GND
+  ["U1.6", "R1.2"],                            // N$1
+  ["R1.2", "D1.A"],                            // N$2 (через R1.2 → объединится с N$1)
+];
+
+function namedNet(idx: number, nodes: string[]): string {
+  if (nodes.includes("U1.7")) return "VCC";
+  if (nodes.includes("U1.4")) return "GND";
+  return `N$${idx}`;
+}
+
 export function NetlistView() {
   const mod = MODULE_INDEX["netlist"];
-  const nets = [
-    { net: "VCC", nodes: ["U1.7", "R1.1", "C1.+"] },
-    { net: "GND", nodes: ["U1.4", "C1.-", "D1.K"] },
-    { net: "N$1", nodes: ["U1.6", "R1.2"] },
-    { net: "N$2", nodes: ["R1.2", "D1.A"] },
-  ];
+  const backend = useCoreBackend();
+
+  const nets = useMemo(() => {
+    const index = new Map(PINS.map((p, i) => [p, i]));
+    const edges = WIRES.flatMap(([a, b]) => [index.get(a)!, index.get(b)!]);
+    const labels = connectedComponents(PINS.length, edges); // ← ядро (WASM/JS)
+    const groups = new Map<number, string[]>();
+    labels.forEach((id, i) => {
+      if (!groups.has(id)) groups.set(id, []);
+      groups.get(id)!.push(PINS[i]);
+    });
+    return [...groups.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([id, nodes]) => ({ net: namedNet(id, nodes), nodes }));
+  }, [backend]);
+
   return (
     <div>
-      <PanelHead mod={mod} right={<span className="chip"><span className="dot ok" />{nets.length} nets</span>} />
+      <PanelHead mod={mod} right={<>
+        <EngineBadge backend={backend} />
+        <span className="chip"><span className="dot ok" />{nets.length} nets</span>
+      </>} />
       <div className="card">
         <table className="tbl">
           <thead><tr><th>Net</th><th>Nodes</th><th>Count</th></tr></thead>
@@ -145,21 +183,28 @@ export function NetlistView() {
 export function SpiceView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["spice"];
-  const [netlist, setNetlist] = useState("* RC low-pass\nV1 in 0 SIN(0 5 1k)\nR1 in out 1k\nC1 out 0 100n\n.tran 10u 5m\n.end");
+  const backend = useCoreBackend();
+  const [r, setR] = useState(1000);     // Ом
+  const [cuf, setCuf] = useState(200);  // мкФ
+  const [freq, setFreq] = useState(2);  // Гц
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState(0);
   const cv = useRef<HTMLCanvasElement>(null);
 
+  const netlist =
+    `* RC low-pass\nV1 in 0 SIN(0 1 ${freq})\nR1 in out ${r}\nC1 out 0 ${cuf}u\n.tran 2.5m 1\n.end`;
+
+  // V(out) считает ядро (RC-транзиент, Эйлер); V(in) — опорный синус.
   const data = useMemo(() => {
-    const N = 400, pts: [number, number][] = [];
+    const N = 400, tEnd = 1;
+    const vout = rcLowpass(r, cuf * 1e-6, 1, freq, tEnd, N); // ← ядро (WASM/JS)
+    const pts: [number, number][] = [];
     for (let i = 0; i < N; i++) {
-      const t = i / N;
-      const vin = Math.sin(2 * Math.PI * 5 * t);
-      const vout = 0.7 * Math.sin(2 * Math.PI * 5 * t - 0.6); // RC attenuation+phase
-      pts.push([vin, vout]);
+      const t = (i / N) * tEnd;
+      pts.push([Math.sin(2 * Math.PI * freq * t), vout[i]]);
     }
     return pts;
-  }, []);
+  }, [r, cuf, freq, backend]);
 
   useEffect(() => {
     const c = cv.current; if (!c) return;
@@ -187,11 +232,28 @@ export function SpiceView() {
 
   return (
     <div>
-      <PanelHead mod={mod} right={<button className="btn primary" onClick={() => { setPhase(0); setRunning(true); ucp.setStatus("ngspice: running .tran"); }}>▶ Run</button>} />
+      <PanelHead mod={mod} right={<>
+        <EngineBadge backend={backend} />
+        <button className="btn primary" onClick={() => { setPhase(0); setRunning(true); ucp.setStatus("ngspice: running .tran"); }}>▶ Run</button>
+      </>} />
       <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14 }}>
-        <div className="card" style={{ padding: 10 }}>
-          <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>NETLIST</div>
-          <textarea rows={9} value={netlist} onChange={(e) => setNetlist(e.target.value)} style={{ width: "100%" }} />
+        <div className="card" style={{ padding: 10, display: "grid", gap: 10 }}>
+          <div className="muted" style={{ fontSize: 11 }}>NETLIST</div>
+          <textarea rows={6} value={netlist} readOnly style={{ width: "100%" }} />
+          <div className="muted" style={{ fontSize: 11 }}>PARAMETERS</div>
+          {[
+            { l: "R, Ом", v: r, set: setR, min: 100, max: 5000, step: 100 },
+            { l: "C, мкФ", v: cuf, set: setCuf, min: 10, max: 1000, step: 10 },
+            { l: "f, Гц", v: freq, set: setFreq, min: 0.5, max: 10, step: 0.5 },
+          ].map((p) => (
+            <label key={p.l} className="field" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 56 }}>{p.l}</span>
+              <input type="range" min={p.min} max={p.max} step={p.step} value={p.v} style={{ flex: 1 }}
+                onChange={(e) => p.set(parseFloat(e.target.value))} />
+              <span style={{ width: 44, textAlign: "right", fontFamily: "monospace" }}>{p.v}</span>
+            </label>
+          ))}
+          <div className="muted" style={{ fontSize: 11 }}>fc ≈ {(1 / (2 * Math.PI * r * cuf * 1e-6)).toFixed(2)} Гц</div>
         </div>
         <div className="card" style={{ padding: 12 }}>
           <canvas ref={cv} width={640} height={320} style={{ width: "100%", height: "auto" }} />

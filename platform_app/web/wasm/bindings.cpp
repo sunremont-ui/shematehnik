@@ -21,8 +21,21 @@ static std::vector<double> pidStep(double kp, double ki, double kd,
     return ucp::pid_step(kp, ki, kd, setpoint, steps);
 }
 
+static std::vector<double> rcLowpass(double r, double c, double vinAmp,
+                                     double freqHz, double tEnd, int steps) {
+    return ucp::rc_lowpass(r, c, vinAmp, freqHz, tEnd, steps);
+}
+
+static std::vector<int> connectedComponents(int n, val edges) {
+    std::vector<int> e = convertJSArrayToNumberVector<int>(edges);
+    return ucp::connected_components(n, e);
+}
+
 EMSCRIPTEN_BINDINGS(ucp_core) {
     register_vector<double>("VectorDouble");
+    register_vector<int>("VectorInt");
     function("crc", &crc);
     function("pidStep", &pidStep);
+    function("rcLowpass", &rcLowpass);
+    function("connectedComponents", &connectedComponents);
 }

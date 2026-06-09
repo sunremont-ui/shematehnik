@@ -27,4 +27,15 @@ uint32_t crc_compute(const uint8_t* data, size_t len, const CrcAlgo& a);
 std::vector<double> pid_step(double kp, double ki, double kd,
                              double setpoint, int steps);
 
+// --- RC low-pass transient (зеркало SPICE-симуляции) ---
+// Вход: синус амплитуды vinAmp, частота freqHz. Численное интегрирование
+// dVout/dt = (Vin - Vout) / (R*C) методом Эйлера на интервале [0, tEnd].
+std::vector<double> rc_lowpass(double r, double c, double vinAmp,
+                               double freqHz, double tEnd, int steps);
+
+// --- Netlist: union-find ---
+// n узлов (пины), edges — плоский массив пар [a0,b0,a1,b1,...].
+// Возвращает нормализованный id цепи для каждого узла [0..n).
+std::vector<int> connected_components(int n, const std::vector<int>& edges);
+
 } // namespace ucp
