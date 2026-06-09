@@ -3,7 +3,16 @@ import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import type { SchComponent } from "../project.ts";
 import { pinsOf, pinOffset, runDrc } from "../project.ts";
+import { routeOrthogonal, type Rect } from "../routing.ts";
 import { PanelHead } from "./common.tsx";
+
+// Bounding-box корпуса (без выводов) — препятствие для роутера.
+function bboxOf(c: SchComponent): Rect {
+  const isU = c.kind === "U";
+  const w = isU ? 24 : c.kind === "R" ? 18 : 14;
+  const h = isU ? 30 : c.kind === "C" ? 14 : 10;
+  return { x0: c.x - w, y0: c.y - h, x1: c.x + w, y1: c.y + h };
+}
 
 const PALETTE = [
   { kind: "R", label: "Resistor", value: "10k" },
@@ -35,10 +44,16 @@ export function SchematicView() {
 
   // ERC: множество висящих выводов (из общей модели через runDrc).
   const floating = useMemo(() => new Set(runDrc(ucp.project).floating), [ucp.project]);
+
+  // Маршруты проводов с объездом корпусов (пересчёт при изменении модели).
+  const obstacles = useMemo(() => comps.map(bboxOf), [comps]);
+  const wirePaths = useMemo(() => wires.map((w) => {
+    const a = comps.find((c) => c.ref === w.from.ref), b = comps.find((c) => c.ref === w.to.ref);
+    return a && b ? routeWire(a, w.from.pin, b, w.to.pin, obstacles) : null;
+  }), [wires, comps, obstacles]);
   const drag = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const byRef = (ref: string) => comps.find((c) => c.ref === ref);
   function onPinClick(ref: string, pin: string) {
     if (!pending) { setPending({ ref, pin }); ucp.setStatus(`Wire from ${ref}.${pin}…`); return; }
     ucp.addWire(pending, { ref, pin });
@@ -104,16 +119,12 @@ export function SchematicView() {
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
-            {/* реальные провода из модели */}
-            {wires.map((w, i) => {
-              const a = byRef(w.from.ref), b = byRef(w.to.ref);
-              if (!a || !b) return null;
-              return (
-                <polyline key={i} points={routeWire(a, w.from.pin, b, w.to.pin, ((i % 5) - 2) * 8)} fill="none" stroke="var(--accent-soft)" strokeWidth="2"
-                  style={{ cursor: wireMode ? "pointer" : "default" }}
-                  onClick={(e) => { if (wireMode) { e.stopPropagation(); ucp.removeWire(i); } }} />
-              );
-            })}
+            {/* реальные провода из модели (с объездом корпусов) */}
+            {wirePaths.map((pts, i) => pts && (
+              <polyline key={i} points={pts} fill="none" stroke="var(--accent-soft)" strokeWidth="2"
+                style={{ cursor: wireMode ? "pointer" : "default" }}
+                onClick={(e) => { if (wireMode) { e.stopPropagation(); ucp.removeWire(i); } }} />
+            ))}
             {comps.map((c) => (
               <CompSym key={c.id} c={c} selected={c.id === sel}
                 onPointerDown={(e) => { if (!wireMode) onDown(e, c); }} />
@@ -164,18 +175,16 @@ export function SchematicView() {
   );
 }
 
-// Разводка провода: каждый вывод выходит наружу от корпуса коротким стабом,
-// затем Z-маршрут через горизонталь посередине между компонентами
-// (вертикали идут вне корпусов, не пересекая их). offset разносит
-// параллельные провода. Дубли точек схлопываются.
-function routeWire(a: SchComponent, ap: string, b: SchComponent, bp: string, offset = 0): string {
+// Разводка провода: каждый вывод выходит наружу коротким стабом, затем
+// ортогональный маршрут A* с объездом корпусов компонентов (obstacles).
+function routeWire(a: SchComponent, ap: string, b: SchComponent, bp: string, obstacles: Rect[]): string {
   const p1 = pinPos(a, ap), p2 = pinPos(b, bp);
   const ad = Math.sign(pinOffset(a.kind, ap).dx) || 1;   // сторона вывода (наружу)
   const bd = Math.sign(pinOffset(b.kind, bp).dx) || 1;
-  const s = 18;
-  const ax = p1.x + ad * s, bx = p2.x + bd * s;
-  const my = Math.round((p1.y + p2.y) / 2) + offset;
-  const raw = [p1, { x: ax, y: p1.y }, { x: ax, y: my }, { x: bx, y: my }, { x: bx, y: p2.y }, p2];
+  const s1 = { x: p1.x + ad * 20, y: p1.y };
+  const s2 = { x: p2.x + bd * 20, y: p2.y };
+  const mid = routeOrthogonal(s1, s2, obstacles);
+  const raw = [p1, ...mid, p2];
   const out: { x: number; y: number }[] = [];
   for (const p of raw) { const last = out[out.length - 1]; if (!last || last.x !== p.x || last.y !== p.y) out.push(p); }
   return out.map((p) => `${p.x},${p.y}`).join(" ");
