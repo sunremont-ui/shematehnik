@@ -4,25 +4,36 @@
 
 Повторяет оболочку десктопа:
 
-- **Menu bar** — File / Modules / View / Help (с горячими клавишами).
-- **Дерево модулей** слева — вся иерархия из `core/module_factory` (Schematic→SPICE, Protocol→…, CodeGen→… и т.д.).
-- **Рабочая область** — стек виджетов выбранного модуля.
+- **Menu bar** — File / Edit / Modules / View / Help (горячие клавиши, undo/redo).
+- **Дерево модулей** слева — вся иерархия из `core/module_factory`.
+- **Рабочая область** — стек виджетов с keep-alive (состояние вкладок сохраняется).
 - **Status bar** — сообщения EventBus `status.message`, текущий модуль, версия.
-- **Тема** — GitHub-dark палитра 1:1 с `MainWindow::applyTheme("dark")` + светлая.
+- **Тема** — GitHub-dark 1:1 с `MainWindow::applyTheme("dark")` + светлая + адаптив.
 
-## Реализованные интерактивные модули
+## Вычислительное ядро (WASM)
+
+`wasm/` (Qt-free C++17, Emscripten + embind) → `public/wasm/ucp_core.{js,wasm}`,
+грузится `src/core/ucpCore.ts` (или идентичный JS-фолбэк; бейдж `engine: wasm|js`):
+`crc`, `pidStep`, `rcLowpass` (RC-транзиент), `connectedComponents` (union-find),
+`csg` (BSP-операции). Пересборка: `npm run build:wasm`.
+
+## Общая модель и поток данных
+
+`src/project.ts` — `UcpProject{components, wires}` (формат `.ucp`), единый источник правды:
 
 | Модуль | Что работает |
 |--------|--------------|
-| Schematic Editor | SVG-канва, палитра компонентов, drag&drop с привязкой к сетке, свойства |
-| PID Tuner | живой график переходного процесса (canvas), метрики overshoot/settling |
-| CRC Calculator | реальный расчёт CRC-8/16/32 (CCITT, MODBUS) |
-| UI Designer | палитра 15 виджетов LVGL, drag&drop на «экране», свойства |
-| OTA Flash | симуляция прошивки esptool с прогрессом и логом |
-| AI Schematic | имитация запроса к Claude API → netlist |
-| Program System | конечные автоматы Greenhouse/Fan/Washer |
+| Schematic | drag&drop компонентов (привязка к сетке), multi-pin (U=6 выводов), рисование проводов |
+| Netlist | цепи из реальных проводов (union-find), экспорт `.net` |
+| PCB | посадочные места + ratsnest из модели, **DRC** (висящие выводы/цепи), экспорт **Gerber** (RS-274X) |
+| 3D Editor | изометрический рендер платы с компонентами |
+| Part Editor | настоящая **CSG** (union/subtract/intersect) в WASM с затенением |
+| PID Tuner | живой график переходного процесса, метрики |
+| SPICE | RC-транзиент из ядра, осциллограмма V(in)/V(out) |
+| CRC Calculator | CRC-8/16/32 (реальный расчёт ядром) |
+| File | Save/Open `.ucp`, автосейв в localStorage, undo/redo |
 
-Остальные модули представлены навигируемыми панелями (порт логики — итеративно).
+Остальные модули (Protocol, CodeGen-экспортёры, UI Designer, AI, OTA, Firmware, Agent) — интерактивные виды на демо-данных.
 
 ## Запуск
 

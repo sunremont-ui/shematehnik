@@ -4,6 +4,15 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-10] update | Web Frontend — WASM core, shared model, tests/CI/deploy
+
+- Веб-фронтенд доведён с мок-демо до прод-готовности; обновлена [Web Frontend](modules/web_frontend.md)
+- **WASM-ядро** (`wasm/`, Emscripten+embind): `crc`, `pidStep`, `rcLowpass`, `connectedComponents`, `csg` (BSP) — с JS-фолбэком, бейдж `engine: wasm|js`; артефакты в `public/wasm/`
+- **Общая модель** `UcpProject{components, wires}` (`.ucp`): Schematic правит (multi-pin U=6, рисование проводов), Netlist/PCB/3D читают; DRC, экспорт нетлиста (`.net`) и Gerber (RS-274X)
+- undo/redo (Edit-меню, коалесинг), File Save/Open, автосейв localStorage, keep-alive вкладок
+- Vitest (21) + Playwright (2), CI-джоба `web`, деплой на GitHub Pages (`deploy-web.yml`)
+- Скилл `/ucp-web` обновлён (test/test:e2e/build:wasm)
+
 ## [2026-06-02] add | Web Frontend (React+TS+Vite)
 
 - Новая веб-версия UI: порт Qt6 десктоп-оболочки на React 18 + TypeScript (strict) + Vite 5, в `platform_app/web/`
