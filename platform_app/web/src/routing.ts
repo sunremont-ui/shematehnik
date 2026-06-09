@@ -20,9 +20,18 @@ class Heap {
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
+// Маршрут с флагом успеха: found=false → объезд невозможен (вернётся L-обход).
+export function routeOrthogonalEx(a: Pt, b: Pt, obstacles: Rect[]): { path: Pt[]; found: boolean } {
+  return routeCore(a, b, obstacles);
+}
+
 // Маршрут от a до b ортогональными сегментами, объезжая obstacles.
 // Возвращает список угловых точек [a, …, b]. Если пути нет — L-обход.
 export function routeOrthogonal(a: Pt, b: Pt, obstacles: Rect[]): Pt[] {
+  return routeCore(a, b, obstacles).path;
+}
+
+function routeCore(a: Pt, b: Pt, obstacles: Rect[]): { path: Pt[]; found: boolean } {
   let minx = Math.min(a.x, b.x), maxx = Math.max(a.x, b.x), miny = Math.min(a.y, b.y), maxy = Math.max(a.y, b.y);
   for (const r of obstacles) { minx = Math.min(minx, r.x0); maxx = Math.max(maxx, r.x1); miny = Math.min(miny, r.y0); maxy = Math.max(maxy, r.y1); }
   minx -= MARGIN; miny -= MARGIN; maxx += MARGIN; maxy += MARGIN;
@@ -67,7 +76,7 @@ export function routeOrthogonal(a: Pt, b: Pt, obstacles: Rect[]): Pt[] {
 
   if (goal < 0) { // нет пути — простой L-обход
     const mx = (a.x + b.x) / 2;
-    return [a, { x: mx, y: a.y }, { x: mx, y: b.y }, b];
+    return { path: [a, { x: mx, y: a.y }, { x: mx, y: b.y }, b], found: false };
   }
 
   // восстановление пути из сетки
@@ -84,7 +93,7 @@ export function routeOrthogonal(a: Pt, b: Pt, obstacles: Rect[]): Pt[] {
     ...cells,
     { x: gN.x, y: b.y }, { x: b.x, y: b.y },
   ];
-  return simplify(full);
+  return { path: simplify(full), found: true };
 }
 
 function simplify(pts: Pt[]): Pt[] {

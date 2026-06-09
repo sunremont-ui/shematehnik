@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { routeOrthogonal, type Rect } from "./routing.ts";
+import { routeOrthogonal, routeOrthogonalEx, type Rect } from "./routing.ts";
 
 // Прямоугольник пересекает любой сегмент пути?
 function pathHitsRect(pts: { x: number; y: number }[], r: Rect): boolean {
@@ -30,6 +30,13 @@ describe("routeOrthogonal", () => {
     const pts = routeOrthogonal({ x: 0, y: 0 }, { x: 100, y: 0 }, [wall]);
     expect(pathHitsRect(pts, { x0: 44, y0: -16, x1: 56, y1: 16 })).toBe(false); // не режет ядро препятствия
     expect(pts.length).toBeGreaterThan(2); // появились изгибы
+  });
+
+  it("routeOrthogonalEx reports found", () => {
+    expect(routeOrthogonalEx({ x: 0, y: 0 }, { x: 100, y: 0 }, []).found).toBe(true);
+    // точка a замурована со всех сторон → пути нет
+    const boxedIn: Rect = { x0: -12, y0: -12, x1: 12, y1: 12 };
+    expect(routeOrthogonalEx({ x: 0, y: 0 }, { x: 100, y: 0 }, [boxedIn]).found).toBe(false);
   });
 
   it("only emits orthogonal segments", () => {

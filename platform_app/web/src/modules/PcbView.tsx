@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { pinsOf, pinOffset, runDrc } from "../project.ts";
-import { routeOrthogonal, type Rect } from "../routing.ts";
+import { routeOrthogonalEx, type Rect } from "../routing.ts";
 import { downloadText } from "../util.ts";
 import { PanelHead } from "./common.tsx";
 
@@ -75,19 +75,26 @@ export function PcbView() {
     });
   }, [fps, ucp.project.wires]);
 
-  // Последовательная разводка: каждая разведённая дорожка трассируется A*
-  // с объездом футпринтов + уже уложенных дорожек (без наложений).
+  // Последовательная двухслойная разводка: дорожка идёт по F.Cu с объездом
+  // футпринтов + уже уложенных F.Cu-дорожек; если пути нет — уходит на B.Cu
+  // (пересекающиеся цепи разводятся на разных слоях через переходы).
   const routedPaths = useMemo(() => {
-    const placed: Rect[] = [];
-    const m = new Map<string, { x: number; y: number }[]>();
-    for (const l of links) {
-      if (!routed.has(l.sig)) continue;
-      const path = [{ x: l.a.x, y: l.a.y }, ...routeOrthogonal(l.s1, l.s2, [...obstacles, ...placed]), { x: l.b.x, y: l.b.y }];
-      m.set(l.sig, path);
+    const placedF: Rect[] = [], placedB: Rect[] = [];
+    const bands = (path: Pt[], into: Rect[]) => {
       for (let i = 0; i + 1 < path.length; i++) {
         const p = path[i], q = path[i + 1], W = 4;
-        placed.push({ x0: Math.min(p.x, q.x) - W, y0: Math.min(p.y, q.y) - W, x1: Math.max(p.x, q.x) + W, y1: Math.max(p.y, q.y) + W });
+        into.push({ x0: Math.min(p.x, q.x) - W, y0: Math.min(p.y, q.y) - W, x1: Math.max(p.x, q.x) + W, y1: Math.max(p.y, q.y) + W });
       }
+    };
+    const m = new Map<string, { path: Pt[]; layer: "F" | "B" }>();
+    for (const l of links) {
+      if (!routed.has(l.sig)) continue;
+      const f = routeOrthogonalEx(l.s1, l.s2, [...obstacles, ...placedF]);
+      const layer: "F" | "B" = f.found ? "F" : "B";
+      const r = f.found ? f : routeOrthogonalEx(l.s1, l.s2, [...obstacles, ...placedB]);
+      const path = [{ x: l.a.x, y: l.a.y }, ...r.path, { x: l.b.x, y: l.b.y }];
+      bands(path, layer === "F" ? placedF : placedB);
+      m.set(l.sig, { path, layer });
     }
     return m;
   }, [links, obstacles, routed]);
@@ -107,7 +114,7 @@ export function PcbView() {
           <button className="btn" onClick={routeAll}>Route all</button>
           <button className="btn" onClick={ripUp}>Rip up</button>
           <button className="btn" onClick={() => { const r = runDrc(ucp.project); setDrc(r); ucp.setStatus(`DRC: ${r.errors} errors, ${r.unrouted} unrouted`); }}>Run DRC</button>
-          <button className="btn primary" onClick={() => { const tr = [...routedPaths.values()]; downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} traces)`); }}>Export Gerber</button>
+          <button className="btn primary" onClick={() => { const tr = [...routedPaths.values()].filter((r) => r.layer === "F").map((r) => r.path); downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} F.Cu traces)`); }}>Export Gerber</button>
         </>
       } />
       <p className="panel-sub">Посадочные места из модели ({fps.length}); разведено {links.length - unrouted}/{links.length} дорожек — клик по связи трассирует/распускает.</p>
@@ -143,13 +150,19 @@ export function PcbView() {
           <svg width="100%" height="420" viewBox="0 0 440 340" style={{ background: "#0a0e0a", display: "block" }}>
             {vis.Edge && <rect x={40} y={40} width={360} height={260} fill="none" stroke={LAYERS[3].color} strokeWidth="2" rx={6} />}
             {links.map((l, i) => {
-              const path = routedPaths.get(l.sig);
-              if (path) {
-                if (!vis.FCu) return null;
+              const r = routedPaths.get(l.sig);
+              if (r) {
+                const onLayer = r.layer === "F" ? vis.FCu : vis.BCu;
+                if (!onLayer) return null;
+                const color = r.layer === "F" ? LAYERS[0].color : LAYERS[1].color;
                 return (
-                  <polyline key={i} points={path.map((p) => `${p.x},${p.y}`).join(" ")}
-                    fill="none" stroke={LAYERS[0].color} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"
-                    style={{ cursor: "pointer" }} onClick={() => toggleRoute(l.sig)} />
+                  <g key={i} style={{ cursor: "pointer" }} onClick={() => toggleRoute(l.sig)}>
+                    <polyline points={r.path.map((p) => `${p.x},${p.y}`).join(" ")}
+                      fill="none" stroke={color} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round" />
+                    {r.layer === "B" && [l.a, l.b].map((p, j) => (   // переходные отверстия
+                      <circle key={j} cx={p.x} cy={p.y} r={3.5} fill="none" stroke="#d8d8d8" strokeWidth="1.5" />
+                    ))}
+                  </g>
                 );
               }
               return ratsnest ? (
