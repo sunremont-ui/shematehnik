@@ -5,17 +5,27 @@ import { pinsOf, pinOffset, runDrc } from "../project.ts";
 import { downloadText } from "../util.ts";
 import { PanelHead } from "./common.tsx";
 
-// Минимальный RS-274X Gerber: контур платы (Edge.Cuts) + флэши падов (F.Cu).
-function buildGerber(fps: { pads: { x: number; y: number }[] }[]): string {
+// Минимальный RS-274X Gerber: контур + флэши падов + разведённые дорожки (F.Cu).
+type Pt = { x: number; y: number };
+function buildGerber(fps: { pads: Pt[] }[], traces: { a: Pt; b: Pt }[] = []): string {
   const k = (px: number) => Math.round((px / 4) * 10000); // px → mm(3.4)
-  const L: string[] = ["%FSLAX34Y34*%", "%MOMM*%", "%ADD10C,1.50000*%", "%ADD11C,0.20000*%", "G01*"];
-  // контур
+  const Y = (py: number) => k(340 - py);
+  const L: string[] = ["%FSLAX34Y34*%", "%MOMM*%", "%ADD10C,1.50000*%", "%ADD11C,0.20000*%", "%ADD12C,0.30000*%", "G01*"];
+  // контур (D11)
   L.push("D11*");
   const oc: [number, number][] = [[40, 40], [400, 40], [400, 300], [40, 300], [40, 40]];
-  oc.forEach(([x, y], i) => L.push(`X${k(x)}Y${k(340 - y)}D0${i === 0 ? 2 : 1}*`));
-  // пады
+  oc.forEach(([x, y], i) => L.push(`X${k(x)}Y${Y(y)}D0${i === 0 ? 2 : 1}*`));
+  // дорожки (D12) — L-разводка
+  if (traces.length) {
+    L.push("D12*");
+    for (const t of traces) {
+      const mx = (t.a.x + t.b.x) / 2;
+      L.push(`X${k(t.a.x)}Y${Y(t.a.y)}D02*`, `X${k(mx)}Y${Y(t.a.y)}D01*`, `X${k(mx)}Y${Y(t.b.y)}D01*`, `X${k(t.b.x)}Y${Y(t.b.y)}D01*`);
+    }
+  }
+  // пады (D10)
   L.push("D10*");
-  for (const f of fps) for (const p of f.pads) L.push(`X${k(p.x)}Y${k(340 - p.y)}D03*`);
+  for (const f of fps) for (const p of f.pads) L.push(`X${k(p.x)}Y${Y(p.y)}D03*`);
   L.push("M02*");
   return L.join("\n");
 }
@@ -33,6 +43,7 @@ export function PcbView() {
   const [vis, setVis] = useState<Record<string, boolean>>({ FCu: true, BCu: true, FSilkS: true, Edge: true });
   const [ratsnest, setRatsnest] = useState(true);
   const [drc, setDrc] = useState<ReturnType<typeof runDrc> | null>(null);
+  const [routed, setRouted] = useState<Set<string>>(new Set()); // сигнатуры разведённых проводов
 
   // Посадочные места из общей модели; пады — на местах выводов (pinOffset).
   const fps = useMemo(() => ucp.project.components.map((c, i) => {
@@ -45,26 +56,35 @@ export function PcbView() {
     return { ref: c.ref, kind: c.kind, x, y, pads };
   }), [ucp.project.components]);
 
-  // Ratsnest строится из реальных проводов (.ucp).
+  // Ratsnest строится из реальных проводов (.ucp); sig — устойчивый ключ связи.
   const rats = useMemo(() => {
     const fp = new Map(fps.map((f) => [f.ref, f]));
     const pad = (ref: string, pin: string) => fp.get(ref)?.pads.find((p) => p.pin === pin) ?? null;
     return ucp.project.wires.flatMap((w) => {
       const a = pad(w.from.ref, w.from.pin), b = pad(w.to.ref, w.to.pin);
-      return a && b ? [{ a, b }] : [];
+      const sig = `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}`;
+      return a && b ? [{ a, b, sig }] : [];
     });
   }, [fps, ucp.project.wires]);
-  const unrouted = rats.length;
+  const unrouted = rats.filter((r) => !routed.has(r.sig)).length;
+
+  function toggleRoute(sig: string) {
+    setRouted((s) => { const n = new Set(s); n.has(sig) ? n.delete(sig) : n.add(sig); return n; });
+  }
+  const routeAll = () => { setRouted(new Set(rats.map((r) => r.sig))); ucp.setStatus(`Routed ${rats.length} traces`); };
+  const ripUp = () => { setRouted(new Set()); ucp.setStatus("Ripped up all traces"); };
 
   return (
     <div>
       <PanelHead mod={mod} right={
         <>
+          <button className="btn" onClick={routeAll}>Route all</button>
+          <button className="btn" onClick={ripUp}>Rip up</button>
           <button className="btn" onClick={() => { const r = runDrc(ucp.project); setDrc(r); ucp.setStatus(`DRC: ${r.errors} errors, ${r.unrouted} unrouted`); }}>Run DRC</button>
-          <button className="btn primary" onClick={() => { downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr`); }}>Export Gerber</button>
+          <button className="btn primary" onClick={() => { const tr = rats.filter((r) => routed.has(r.sig)); downloadText(`${ucp.projectName}-F_Cu.gbr`, buildGerber(fps, tr), "application/vnd.gerber"); ucp.setStatus(`Exported ${ucp.projectName}-F_Cu.gbr (${tr.length} traces)`); }}>Export Gerber</button>
         </>
       } />
-      <p className="panel-sub">Посадочные места из общей модели проекта — {fps.length} компонентов из Schematic.</p>
+      <p className="panel-sub">Посадочные места из модели ({fps.length}); разведено {rats.length - unrouted}/{rats.length} дорожек — клик по связи трассирует/распускает.</p>
       <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: 14 }}>
         <div className="card" style={{ display: "grid", gap: 8, alignContent: "start" }}>
           <div className="muted" style={{ fontSize: 11 }}>LAYERS</div>
@@ -96,9 +116,22 @@ export function PcbView() {
         <div className="card" style={{ padding: 0 }}>
           <svg width="100%" height="420" viewBox="0 0 440 340" style={{ background: "#0a0e0a", display: "block" }}>
             {vis.Edge && <rect x={40} y={40} width={360} height={260} fill="none" stroke={LAYERS[3].color} strokeWidth="2" rx={6} />}
-            {ratsnest && rats.map((r, i) => (
-              <line key={i} x1={r.a.x} y1={r.a.y} x2={r.b.x} y2={r.b.y} stroke="#3fb950" strokeWidth="1" strokeDasharray="3 3" />
-            ))}
+            {rats.map((r, i) => {
+              const isRouted = routed.has(r.sig);
+              if (isRouted) {
+                if (!vis.FCu) return null;
+                const mx = (r.a.x + r.b.x) / 2; // L-разводка по F.Cu
+                return (
+                  <polyline key={i} points={`${r.a.x},${r.a.y} ${mx},${r.a.y} ${mx},${r.b.y} ${r.b.x},${r.b.y}`}
+                    fill="none" stroke={LAYERS[0].color} strokeWidth="3.5" strokeLinejoin="round" strokeLinecap="round"
+                    style={{ cursor: "pointer" }} onClick={() => toggleRoute(r.sig)} />
+                );
+              }
+              return ratsnest ? (
+                <line key={i} x1={r.a.x} y1={r.a.y} x2={r.b.x} y2={r.b.y} stroke="#3fb950" strokeWidth="1.5" strokeDasharray="3 3"
+                  style={{ cursor: "pointer" }} onClick={() => toggleRoute(r.sig)} />
+              ) : null;
+            })}
             {fps.map((f) => {
               const big = f.kind === "U";
               return (
