@@ -22,9 +22,10 @@ Used by `SchematicView`:
 
 ## PCB trace router — `src/modules/PcbView.tsx`
 
-Simpler Manhattan channel route (pad → out → channel below footprints →
-up → pad), stored as `path` per ratsnest entry; used for the SVG polyline
-and the Gerber track segments. Click a ratsnest airwire to route/rip-up.
+Same `routeOrthogonal` A* over footprint bounding boxes (`obstacles`):
+each pad escapes outward, then copper traces bend around footprints. The
+`path` per ratsnest entry feeds the SVG polyline and the Gerber track
+segments. Click a ratsnest airwire to route/rip-up; Route all / Rip up.
 
 ## Tuning / extending
 
