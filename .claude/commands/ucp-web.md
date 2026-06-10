@@ -7,7 +7,7 @@ Build, run, test and verify the UCP web frontend (React + TypeScript + Vite + WA
 ```bash
 cd D:/shemaTehnik/platform_app/web
 npm install 2>&1 | tail -3          # only first time / after deps change
-npm test 2>&1 | tail -6             # Vitest — core algorithms + project model
+npm test 2>&1 | tail -6             # Vitest (32) — core algos, model, router, import/export
 npm run build 2>&1 | tail -15       # tsc -b (strict) + vite build → dist/
 ```
 

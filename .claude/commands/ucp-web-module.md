@@ -16,18 +16,21 @@ How to add or extend a module view in the web frontend (`platform_app/web/`).
 
 ## Use the shared project model
 
-`src/project.ts` `UcpProject { components, wires }` is the single source of
-truth, held in the store (`src/store.ts` `useUcp()`):
+`src/project.ts` `UcpProject { components, wires, labels }` is the single
+source of truth, held in the store (`src/store.ts` `useUcp()`):
 
-- Read: `ucp.project.components` / `ucp.project.wires`.
-- Mutate: `addComponent` / `updateComponent` / `removeComponent` /
-  `addWire` / `removeWire` / `loadProject`. These feed undo/redo + autosave
-  automatically — do NOT keep a parallel copy in local state.
-- Pins: `pinsOf(kind)` (U=6, else 2) + `pinOffset(kind, pin)`.
-- Nets/DRC/export/import: `computeNets`, `runDrc`, `exportNetlist`,
-  `importNetlist` (.net), `importKicadSch` (.kicad_sch — components + nets
-  traced from wire geometry). Orthogonal routing: `routeOrthogonal`
-  (`src/routing.ts`, `/ucp-web-route`).
+- Read: `ucp.project.{components, wires, labels}`. Component has optional
+  `rot` (0/90/180/270).
+- Mutate: `addComponent` / `updateComponent` (e.g. `{rot}`) / `removeComponent`
+  / `addWire` / `removeWire` / `setLabel(ref,pin,net)` / `loadProject`. These
+  feed undo/redo + autosave automatically — do NOT keep a parallel copy.
+- Pins: `pinsOf(kind)` (U=6, else 2) + `pinOffset(kind, pin, rot)` (rotates).
+- Nets honour wires AND net-labels: `computeNets`, `runDrc` (floating/nets).
+- Export: `exportNetlist` (.net), `exportBom` (CSV), PCB Gerber/Excellon
+  drill (PcbView). Import: `importNetlist` (.net), `importKicadSch`
+  (.kicad_sch — components + nets from wire geometry).
+- Orthogonal routing (Schematic wires + PCB traces): `routeOrthogonal` /
+  `routeOrthogonalEx` (`src/routing.ts`, `/ucp-web-route`).
 
 A module that derives from the model (Netlist, PCB, 3D, DRC) should
 `useMemo` over `ucp.project` so it updates live as the schematic changes.
