@@ -118,6 +118,18 @@ describe("exportBom", () => {
   });
 });
 
+describe("net labels", () => {
+  it("connect pins into a named net without a wire; not floating", () => {
+    const p = emptyProject();
+    p.labels.push({ ref: "R1", pin: "1", net: "GND" }, { ref: "U1", pin: "6", net: "GND" });
+    const gnd = computeNets(p).find((n) => n.name === "GND");
+    expect(gnd?.pins.sort()).toEqual(["R1.1", "U1.6"]);
+    const drc = runDrc(p);
+    expect(drc.floating).not.toContain("R1.1");
+    expect(drc.floating).not.toContain("U1.6");
+  });
+});
+
 describe("nextRef", () => {
   it("allocates the next free refdes per kind", () => {
     const comps = emptyProject().components; // R1, C1, U1

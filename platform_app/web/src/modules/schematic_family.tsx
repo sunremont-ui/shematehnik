@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { connectedComponents, rcLowpass, useCoreBackend } from "../core/ucpCore.ts";
-import { pinsOf, exportNetlist, exportBom } from "../project.ts";
+import { rcLowpass, useCoreBackend } from "../core/ucpCore.ts";
+import { computeNets, exportNetlist, exportBom } from "../project.ts";
 import { downloadText } from "../util.ts";
 
 function EngineBadge({ backend }: { backend: string }) {
@@ -129,38 +129,19 @@ export function WireToolView() {
 export function NetlistView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["netlist"];
-  const backend = useCoreBackend();
   const comps = ucp.project.components;
 
-  const wires = ucp.project.wires;
-  // Цепи выводятся из реальных проводов (.ucp) через union-find в ядре.
-  const nets = useMemo(() => {
-    const pins = comps.flatMap((c) => pinsOf(c.kind).map((p) => `${c.ref}.${p}`));
-    const idx = new Map(pins.map((p, i) => [p, i]));
-    if (pins.length === 0) return [];
-    const edges = wires.flatMap((w) => {
-      const a = idx.get(`${w.from.ref}.${w.from.pin}`), b = idx.get(`${w.to.ref}.${w.to.pin}`);
-      return a != null && b != null ? [a, b] : [];
-    });
-    const labels = connectedComponents(pins.length, edges); // ← ядро (WASM/JS)
-    const groups = new Map<number, string[]>();
-    labels.forEach((id, i) => {
-      if (!groups.has(id)) groups.set(id, []);
-      groups.get(id)!.push(pins[i]);
-    });
-    // показываем только цепи с >1 выводом (реально соединённые)
-    return [...groups.values()].filter((n) => n.length > 1).map((nodes, i) => ({ net: `N$${i + 1}`, nodes }));
-  }, [comps, wires, backend]);
+  // Цепи из общей модели: провода + net-метки (union-find в `computeNets`).
+  const nets = useMemo(() => computeNets(ucp.project).map((n) => ({ net: n.name, nodes: n.pins })), [ucp.project]);
 
   return (
     <div>
       <PanelHead mod={mod} right={<>
-        <EngineBadge backend={backend} />
         <span className="chip"><span className="dot ok" />{nets.length} nets · {comps.length} comps</span>
         <button className="btn" onClick={() => { downloadText(`${ucp.projectName}-bom.csv`, exportBom(ucp.project), "text/csv"); ucp.setStatus(`Exported ${ucp.projectName}-bom.csv`); }}>Export BOM</button>
         <button className="btn primary" onClick={() => { downloadText(`${ucp.projectName}.net`, exportNetlist(ucp.project)); ucp.setStatus(`Exported ${ucp.projectName}.net`); }}>Export netlist</button>
       </>} />
-      <p className="panel-sub">Цепи выведены из общей модели проекта — добавьте/удалите компонент в Schematic и список обновится.</p>
+      <p className="panel-sub">Цепи из проводов и net-меток — обновляются вживую при правке Schematic.</p>
       <div className="card">
         <table className="tbl">
           <thead><tr><th>Net</th><th>Nodes</th><th>Count</th></tr></thead>
@@ -168,7 +149,7 @@ export function NetlistView() {
             {nets.map((n) => (
               <tr key={n.net}><td><code>{n.net}</code></td><td>{n.nodes.map((x) => <span key={x} className="tag" style={{ marginRight: 4 }}>{x}</span>)}</td><td>{n.nodes.length}</td></tr>
             ))}
-            {nets.length === 0 && <tr><td colSpan={3} className="muted">Нет компонентов.</td></tr>}
+            {nets.length === 0 && <tr><td colSpan={3} className="muted">Нет цепей.</td></tr>}
           </tbody>
         </table>
       </div>

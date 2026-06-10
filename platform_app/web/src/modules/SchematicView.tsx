@@ -39,8 +39,11 @@ export function SchematicView() {
   const wires = ucp.project.wires;
   const [sel, setSel] = useState<string | null>(null);
   const [wireMode, setWireMode] = useState(false);
+  const [labelMode, setLabelMode] = useState(false);
   const [erc, setErc] = useState(false);
   const [pending, setPending] = useState<{ ref: string; pin: string } | null>(null);
+  const labels = ucp.project.labels;
+  const labelOf = (ref: string, pin: string) => labels.find((l) => l.ref === ref && l.pin === pin)?.net;
 
   // ERC: множество висящих выводов (из общей модели через runDrc).
   const floating = useMemo(() => new Set(runDrc(ucp.project).floating), [ucp.project]);
@@ -87,8 +90,11 @@ export function SchematicView() {
     <div>
       <PanelHead mod={mod} right={
         <>
-          <button className={`btn${wireMode ? " primary" : ""}`} onClick={() => { setWireMode((w) => !w); setPending(null); ucp.setStatus(wireMode ? "Select mode" : "Wire mode: click two pins"); }}>
+          <button className={`btn${wireMode ? " primary" : ""}`} onClick={() => { setWireMode((w) => !w); setLabelMode(false); setPending(null); ucp.setStatus(wireMode ? "Select mode" : "Wire mode: click two pins"); }}>
             {wireMode ? "Wire ✓" : "Wire"}
+          </button>
+          <button className={`btn${labelMode ? " primary" : ""}`} onClick={() => { setLabelMode((m) => !m); setWireMode(false); ucp.setStatus(labelMode ? "Select mode" : "Label mode: click a pin to name its net"); }}>
+            {labelMode ? "Label ✓" : "Label"}
           </button>
           <button className={`btn${erc ? " primary" : ""}`} onClick={() => { setErc((e) => !e); ucp.setStatus(erc ? "ERC off" : `ERC: ${floating.size} floating pins`); }}>
             ERC{erc ? " ✓" : ""}
@@ -127,8 +133,17 @@ export function SchematicView() {
             ))}
             {comps.map((c) => (
               <CompSym key={c.id} c={c} selected={c.id === sel}
-                onPointerDown={(e) => { if (!wireMode) onDown(e, c); }} />
+                onPointerDown={(e) => { if (!wireMode && !labelMode) onDown(e, c); }} />
             ))}
+            {/* net-метки на выводах */}
+            {labels.map((l, i) => {
+              const c = comps.find((x) => x.ref === l.ref); if (!c) return null;
+              const p = pinPos(c, l.pin), dir = Math.sign(pinOffset(c.kind, l.pin).dx) || 1;
+              return (
+                <text key={i} x={p.x + dir * 10} y={p.y - 4} textAnchor={dir < 0 ? "end" : "start"}
+                  fill="#d29922" fontSize="10" fontFamily="monospace">{l.net}</text>
+              );
+            })}
             {/* ERC: красные маркеры на висящих выводах */}
             {erc && comps.flatMap((c) =>
               pinsOf(c.kind).filter((pin) => floating.has(`${c.ref}.${pin}`)).map((pin) => {
@@ -136,16 +151,21 @@ export function SchematicView() {
                 return <circle key={`erc-${c.id}-${pin}`} cx={p.x} cy={p.y} r={7} fill="none" stroke="var(--danger)" strokeWidth="2" pointerEvents="none" />;
               }),
             )}
-            {/* кликабельные выводы в режиме провода */}
-            {wireMode && comps.flatMap((c) =>
+            {/* кликабельные выводы в режиме провода/метки */}
+            {(wireMode || labelMode) && comps.flatMap((c) =>
               pinsOf(c.kind).map((pin) => {
                 const p = pinPos(c, pin);
                 const active = pending?.ref === c.ref && pending?.pin === pin;
                 return (
                   <circle key={`${c.id}-${pin}`} cx={p.x} cy={p.y} r={6}
-                    fill={active ? "var(--accent)" : "var(--panel)"} stroke="var(--accent-soft)" strokeWidth="1.5"
+                    fill={active ? "var(--accent)" : "var(--panel)"} stroke={labelMode ? "#d29922" : "var(--accent-soft)"} strokeWidth="1.5"
                     style={{ cursor: "pointer" }}
-                    onClick={(e) => { e.stopPropagation(); onPinClick(c.ref, pin); }} />
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (wireMode) { onPinClick(c.ref, pin); return; }
+                      const net = window.prompt(`Net name for ${c.ref}.${pin} (empty to remove):`, labelOf(c.ref, pin) ?? "");
+                      if (net !== null) ucp.setLabel(c.ref, pin, net.trim());
+                    }} />
                 );
               }),
             )}

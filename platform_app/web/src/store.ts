@@ -27,6 +27,7 @@ export interface UcpState {
   removeComponent: (id: string) => void;
   addWire: (from: PinRef, to: PinRef) => void;
   removeWire: (index: number) => void;
+  setLabel: (ref: string, pin: string, net: string) => void;  // net="" → снять
   loadProject: (p: UcpProject) => void;     // File → Open
 
   // --- История (undo/redo, с коалесингом перетаскивания) ---

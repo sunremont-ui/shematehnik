@@ -167,6 +167,11 @@ export function App() {
       return { ...p, wires: [...p.wires, { from, to }] };
     }),
     removeWire: (index) => { setProject((p) => ({ ...p, wires: p.wires.filter((_, i) => i !== index) })); setModified(true); },
+    setLabel: (ref, pin, net) => setProject((p) => {
+      const others = p.labels.filter((l) => !(l.ref === ref && l.pin === pin));
+      setModified(true); setStatus(net ? `Net "${net}" on ${ref}.${pin}` : `Label removed ${ref}.${pin}`);
+      return { ...p, labels: net ? [...others, { ref, pin, net }] : others };
+    }),
     loadProject: (p) => { setProject(p); setModified(false); },
 
     undo, redo,
