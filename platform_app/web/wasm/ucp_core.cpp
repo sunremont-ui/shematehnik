@@ -66,6 +66,52 @@ std::vector<double> rc_lowpass(double r, double c, double vinAmp,
     return out;
 }
 
+std::vector<double> mna_dc(int numNodes, const std::vector<double>& el) {
+    std::vector<double> v(std::max(0, numNodes), 0.0);
+    if (numNodes < 2) return v;
+    int m = 0;
+    for (size_t i = 0; i + 3 < el.size(); i += 4) if (static_cast<int>(el[i]) == 1) m++;
+    const int N = numNodes - 1, sz = N + m;            // неизвестные: узлы 1..N-1 + токи V
+    std::vector<std::vector<double>> A(sz, std::vector<double>(sz, 0.0));
+    std::vector<double> z(sz, 0.0);
+    auto idx = [](int node) { return node - 1; };       // узел → строка (земля=0 → пропуск)
+    int vk = 0;
+    for (size_t i = 0; i + 3 < el.size(); i += 4) {
+        int type = static_cast<int>(el[i]), a = static_cast<int>(el[i + 1]), b = static_cast<int>(el[i + 2]);
+        double val = el[i + 3];
+        if (type == 0) {                                // резистор
+            double g = (std::fabs(val) < 1e-12) ? 1e12 : 1.0 / val;
+            if (a > 0) A[idx(a)][idx(a)] += g;
+            if (b > 0) A[idx(b)][idx(b)] += g;
+            if (a > 0 && b > 0) { A[idx(a)][idx(b)] -= g; A[idx(b)][idx(a)] -= g; }
+        } else if (type == 2) {                         // источник тока a→b
+            if (a > 0) z[idx(a)] -= val;
+            if (b > 0) z[idx(b)] += val;
+        } else if (type == 1) {                         // источник напряжения
+            int r = N + vk++;
+            if (a > 0) { A[idx(a)][r] += 1; A[r][idx(a)] += 1; }
+            if (b > 0) { A[idx(b)][r] -= 1; A[r][idx(b)] -= 1; }
+            z[r] = val;
+        }
+    }
+    // Гаусс-Жордан с частичным выбором ведущего
+    for (int col = 0; col < sz; col++) {
+        int piv = col;
+        for (int r = col + 1; r < sz; r++) if (std::fabs(A[r][col]) > std::fabs(A[piv][col])) piv = r;
+        std::swap(A[col], A[piv]); std::swap(z[col], z[piv]);
+        double d = A[col][col];
+        if (std::fabs(d) < 1e-12) continue;
+        for (int r = 0; r < sz; r++) {
+            if (r == col) continue;
+            double f = A[r][col] / d;
+            for (int c = col; c < sz; c++) A[r][c] -= f * A[col][c];
+            z[r] -= f * z[col];
+        }
+    }
+    for (int i = 0; i < N; i++) { double d = A[i][i]; v[i + 1] = std::fabs(d) < 1e-12 ? 0.0 : z[i] / d; }
+    return v;
+}
+
 std::vector<int> connected_components(int n, const std::vector<int>& edges) {
     std::vector<int> parent(std::max(0, n));
     std::iota(parent.begin(), parent.end(), 0);

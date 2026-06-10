@@ -35,7 +35,10 @@
 | `pid_step` | `pidStep()` | PID Tuner |
 | `rc_lowpass` | `rcLowpass()` | SPICE (RC-транзиент) |
 | `connected_components` (union-find) | `connectedComponents()` | Netlist / DRC |
+| `mna_dc` (узловой анализ, `ucp_core.cpp`) | `mnaDc()` | SPICE (DC operating point) |
 | `csg_boxes` (BSP, `ucp_csg.cpp`) | `csg()` | Part Editor |
+
+`mna_dc(numNodes, elements)` — решатель методом модифицированных узловых уравнений (MNA): элементы `{type, n1, n2, value}` (0=R, 1=V-источник, 2=I-источник), узел 0 = земля; матрица проводимостей + строки токов источников V, решение Гаусс-Жорданом с выбором ведущего → напряжения узлов. JS-фолбэк зеркалит C++ 1:1.
 
 Сборка: `npm run build:wasm` (Linux/git-bash с extensionless emcc; на Windows — через cmd, см. [wasm/README](../../platform_app/web/wasm/README.md)).
 
@@ -43,9 +46,10 @@
 
 `src/project.ts` — `UcpProject { components, wires }` (формат `.ucp`), единый источник правды в store:
 
-- **Schematic** редактирует компоненты (drag, multi-pin: U=6 выводов) и **провода** (режим Wire — клик по двум выводам); провода разводятся A*-роутером с объездом корпусов; **ERC** подсвечивает висящие выводы.
+- **Schematic** редактирует компоненты (drag, multi-pin: U=6 выводов) и **провода** (режим Wire — клик по двум выводам); провода разводятся A*-роутером с объездом корпусов; **ERC** подсвечивает висящие выводы. Палитра — **библиотека компонентов** (`src/data/library.ts`): искомый список из 22 деталей по категориям (Passive/Diode/Transistor/IC/Connector); деталь несёт `kind/value/footprint` на компонент (`SchComponent.footprint`).
 - **Netlist** выводит цепи из реальных проводов (union-find в ядре); экспорт **нетлиста** (`.net`).
-- **PCB** строит посадочные места и ratsnest из модели; **трассировка** A* с объездом футпринтов, последовательная (новая дорожка объезжает уложенные) и **двухслойная** (F.Cu/B.Cu + переходные отверстия); **DRC** (`runDrc`); экспорт **Gerber** (RS-274X).
+- **SPICE** — RC-транзиент (`rcLowpass`) + **DC operating point**: узловой анализ делителя (`mnaDc` в ядре).
+- **PCB** строит посадочные места и ratsnest из модели; **трассировка** A* с объездом футпринтов, последовательная (новая дорожка объезжает уложенные) и **двухслойная** (F.Cu/B.Cu + переходные отверстия); **DRC** (`runDrc`); экспорт **Gerber** (RS-274X) + Excellon drill; **BOM CSV** (группировка по value/типу, колонка Footprint).
 - **3D Editor** — изометрический рендер платы с компонентами; **Part Editor** — настоящая CSG (WASM) с затенением.
 - **File → Save/Open** (`.ucp`), **импорт** `.net` (полный) и `.kicad_sch` (компоненты + цепи по геометрии); автосейв в `localStorage`, **undo/redo** (Edit-меню, Ctrl+Z/Y, коалесинг перетаскивания).
 
@@ -62,7 +66,7 @@
 
 ## Тесты, CI, деплой
 
-- **Vitest** (`npm test`, 29) — ядро/модель/роутер: CRC-векторы, union-find, pid/rc, CSG, round-trip `.ucp`, провода, DRC, экспорт/импорт нетлиста, `.kicad_sch`, A*-роутер (объезд/флаг found).
+- **Vitest** (`npm test`, 35) — ядро/модель/роутер: CRC-векторы, union-find, **MNA-делитель** (закон Ома), pid/rc, CSG, round-trip `.ucp`, провода, DRC, экспорт/импорт нетлиста, `.kicad_sch`, A*-роутер (объезд/флаг found), целостность библиотеки + футпринт в BOM.
 - **Playwright** (`npm run test:e2e`) — e2e-смоук (рендер 25 модулей, поток Schematic→Netlist).
 - **CI** — джоба `web` в `.github/workflows/ci.yml` (vitest + emsdk + wasm + vite + chromium e2e).
 - **Deploy** — `deploy-web.yml` публикует `dist/` на GitHub Pages; `base: "./"` → работает на любом subpath.

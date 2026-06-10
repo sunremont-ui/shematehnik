@@ -20,9 +20,13 @@ interface WasmCore {
   pidStep(kp: number, ki: number, kd: number, setpoint: number, steps: number): Vec<number>;
   rcLowpass(r: number, c: number, vinAmp: number, freqHz: number, tEnd: number, steps: number): Vec<number>;
   connectedComponents(n: number, edges: number[]): Vec<number>;
+  mnaDc(numNodes: number, elements: number[]): Vec<number>;
   csgBoxes(op: number, cx: number, cy: number, cz: number, rx: number, ry: number, rz: number,
            dx: number, dy: number, dz: number, ex: number, ey: number, ez: number): Vec<number>;
 }
+
+// Элемент цепи для MNA: type 0=R(Ом), 1=V(В, n1=+,n2=-), 2=I(А, n1→n2).
+export interface MnaElement { type: 0 | 1 | 2; n1: number; n2: number; value: number; }
 
 export type Vec3 = [number, number, number];
 export interface Box { c: Vec3; r: Vec3; }
@@ -180,6 +184,56 @@ function boxTrisJs(b: Box): number[] {
     ...quad(v(1,-1,-1), v(1,1,-1), v(1,1,1), v(1,-1,1)),
     ...quad(v(-1,-1,-1), v(-1,-1,1), v(-1,1,1), v(-1,1,-1)),
   ];
+}
+
+// MNA DC-решатель (зеркало ucp_core.cpp mna_dc). Возвращает напряжения узлов.
+function mnaDcJs(numNodes: number, el: number[]): number[] {
+  const v = new Array(Math.max(0, numNodes)).fill(0);
+  if (numNodes < 2) return v;
+  let m = 0;
+  for (let i = 0; i + 3 < el.length; i += 4) if (el[i] === 1) m++;
+  const N = numNodes - 1, sz = N + m;
+  const A = Array.from({ length: sz }, () => new Array(sz).fill(0));
+  const z = new Array(sz).fill(0);
+  const ix = (n: number) => n - 1;
+  let vk = 0;
+  for (let i = 0; i + 3 < el.length; i += 4) {
+    const type = el[i], a = el[i + 1], b = el[i + 2], val = el[i + 3];
+    if (type === 0) {
+      const g = Math.abs(val) < 1e-12 ? 1e12 : 1 / val;
+      if (a > 0) A[ix(a)][ix(a)] += g;
+      if (b > 0) A[ix(b)][ix(b)] += g;
+      if (a > 0 && b > 0) { A[ix(a)][ix(b)] -= g; A[ix(b)][ix(a)] -= g; }
+    } else if (type === 2) {
+      if (a > 0) z[ix(a)] -= val;
+      if (b > 0) z[ix(b)] += val;
+    } else if (type === 1) {
+      const r = N + vk++;
+      if (a > 0) { A[ix(a)][r] += 1; A[r][ix(a)] += 1; }
+      if (b > 0) { A[ix(b)][r] -= 1; A[r][ix(b)] -= 1; }
+      z[r] = val;
+    }
+  }
+  for (let col = 0; col < sz; col++) {
+    let piv = col;
+    for (let r = col + 1; r < sz; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    [A[col], A[piv]] = [A[piv], A[col]]; [z[col], z[piv]] = [z[piv], z[col]];
+    const d = A[col][col]; if (Math.abs(d) < 1e-12) continue;
+    for (let r = 0; r < sz; r++) {
+      if (r === col) continue;
+      const f = A[r][col] / d;
+      for (let c = col; c < sz; c++) A[r][c] -= f * A[col][c];
+      z[r] -= f * z[col];
+    }
+  }
+  for (let i = 0; i < N; i++) { const d = A[i][i]; v[i + 1] = Math.abs(d) < 1e-12 ? 0 : z[i] / d; }
+  return v;
+}
+
+export function mnaDc(numNodes: number, elements: MnaElement[]): number[] {
+  const flat = elements.flatMap((e) => [e.type, e.n1, e.n2, e.value]);
+  if (wasm) return vecToArray(wasm.mnaDc(numNodes, flat));
+  return mnaDcJs(numNodes, flat);
 }
 
 export function csg(op: CsgOp, a: Box, b: Box): number[] {

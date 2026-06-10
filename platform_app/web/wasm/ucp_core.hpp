@@ -38,4 +38,10 @@ std::vector<double> rc_lowpass(double r, double c, double vinAmp,
 // Возвращает нормализованный id цепи для каждого узла [0..n).
 std::vector<int> connected_components(int n, const std::vector<int>& edges);
 
+// --- SPICE: MNA DC-решатель (узловые напряжения) ---
+// numNodes — число узлов (узел 0 = земля). elements — плоский массив по 4:
+// [type, n1, n2, value, …]; type 0=R(Ом), 1=V(В, n1=+,n2=-), 2=I(А, n1→n2).
+// Возвращает напряжения узлов [0..numNodes), v[0]=0. Метод Гаусса.
+std::vector<double> mna_dc(int numNodes, const std::vector<double>& elements);
+
 } // namespace ucp

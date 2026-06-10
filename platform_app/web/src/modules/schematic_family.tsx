@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { rcLowpass, useCoreBackend } from "../core/ucpCore.ts";
+import { rcLowpass, mnaDc, useCoreBackend } from "../core/ucpCore.ts";
 import { computeNets, exportNetlist, exportBom } from "../project.ts";
 import { downloadText } from "../util.ts";
 
@@ -167,6 +167,16 @@ export function SpiceView() {
   const [r, setR] = useState(1000);     // Ом
   const [cuf, setCuf] = useState(200);  // мкФ
   const [freq, setFreq] = useState(2);  // Гц
+  // DC operating point: делитель Vin–R1–(node2)–R2–GND, решается MNA в ядре
+  const [vin, setVin] = useState(5);
+  const [r1, setR1] = useState(1000);
+  const [r2, setR2] = useState(2000);
+  const dc = useMemo(() => mnaDc(3, [
+    { type: 1, n1: 1, n2: 0, value: vin },
+    { type: 0, n1: 1, n2: 2, value: r1 },
+    { type: 0, n1: 2, n2: 0, value: r2 },
+  ]), [vin, r1, r2, backend]);
+  const vout = dc[2] ?? 0, current = (vin - 0) / (r1 + r2);
   const [running, setRunning] = useState(false);
   const [phase, setPhase] = useState(0);
   const cv = useRef<HTMLCanvasElement>(null);
@@ -242,6 +252,26 @@ export function SpiceView() {
             <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />V(out)</span>
           </div>
         </div>
+      </div>
+      <div className="card" style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 240px", gap: 14, alignItems: "center" }}>
+        <div style={{ display: "grid", gap: 8 }}>
+          <div className="muted" style={{ fontSize: 11 }}>DC OPERATING POINT — делитель Vin–R1–R2 (узловые напряжения, MNA в ядре)</div>
+          {[
+            { l: "Vin, В", v: vin, set: setVin, min: 1, max: 12, step: 0.5 },
+            { l: "R1, Ом", v: r1, set: setR1, min: 100, max: 10000, step: 100 },
+            { l: "R2, Ом", v: r2, set: setR2, min: 100, max: 10000, step: 100 },
+          ].map((p) => (
+            <label key={p.l} className="field" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <span style={{ width: 56 }}>{p.l}</span>
+              <input type="range" min={p.min} max={p.max} step={p.step} value={p.v} style={{ flex: 1 }} onChange={(e) => p.set(parseFloat(e.target.value))} />
+              <span style={{ width: 56, textAlign: "right", fontFamily: "monospace" }}>{p.v}</span>
+            </label>
+          ))}
+        </div>
+        <table className="tbl"><tbody>
+          <tr><td>V(node2)</td><td><code>{vout.toFixed(3)} В</code></td></tr>
+          <tr><td>I</td><td><code>{(current * 1000).toFixed(3)} мА</code></td></tr>
+        </tbody></table>
       </div>
     </div>
   );

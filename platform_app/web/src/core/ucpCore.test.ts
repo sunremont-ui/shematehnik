@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { crc, pidStep, rcLowpass, connectedComponents, type CrcParams } from "./ucpCore.ts";
+import { crc, pidStep, rcLowpass, connectedComponents, mnaDc, type CrcParams } from "./ucpCore.ts";
 
 // В node WASM не загружен → проверяем JS-фолбэк (он 1:1 с C++-ядром).
 const bytes = (s: string) => new Uint8Array([...s].map((c) => c.charCodeAt(0)));
@@ -37,6 +37,28 @@ describe("pidStep", () => {
     const last = out[out.length - 1];
     expect(last).toBeGreaterThan(90);
     expect(last).toBeLessThan(110);
+  });
+});
+
+describe("mnaDc (nodal analysis)", () => {
+  it("solves a resistive voltage divider (10V, 1k/1k → 5V)", () => {
+    const v = mnaDc(3, [
+      { type: 1, n1: 1, n2: 0, value: 10 },     // V source 10V on node 1
+      { type: 0, n1: 1, n2: 2, value: 1000 },   // R1 node1-node2
+      { type: 0, n1: 2, n2: 0, value: 1000 },   // R2 node2-gnd
+    ]);
+    expect(v[0]).toBe(0);
+    expect(v[1]).toBeCloseTo(10, 6);
+    expect(v[2]).toBeCloseTo(5, 6);
+  });
+
+  it("Ohm's law: 5V across 1k draws 5mA → 2k divider gives 2/3", () => {
+    const v = mnaDc(3, [
+      { type: 1, n1: 1, n2: 0, value: 9 },
+      { type: 0, n1: 1, n2: 2, value: 1000 },
+      { type: 0, n1: 2, n2: 0, value: 2000 },
+    ]);
+    expect(v[2]).toBeCloseTo(6, 6); // 9 * 2k/3k
   });
 });
 

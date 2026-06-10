@@ -32,6 +32,11 @@ static std::vector<int> connectedComponents(int n, val edges) {
     return ucp::connected_components(n, e);
 }
 
+static std::vector<double> mnaDc(int numNodes, val elements) {
+    std::vector<double> el = convertJSArrayToNumberVector<double>(elements);
+    return ucp::mna_dc(numNodes, el);
+}
+
 static std::vector<double> csgBoxes(int op,
         double cx, double cy, double cz, double rx, double ry, double rz,
         double dx, double dy, double dz, double ex, double ey, double ez) {
@@ -45,5 +50,6 @@ EMSCRIPTEN_BINDINGS(ucp_core) {
     function("pidStep", &pidStep);
     function("rcLowpass", &rcLowpass);
     function("connectedComponents", &connectedComponents);
+    function("mnaDc", &mnaDc);
     function("csgBoxes", &csgBoxes);
 }
