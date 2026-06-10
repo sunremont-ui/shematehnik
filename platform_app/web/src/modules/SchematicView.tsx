@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import type { SchComponent } from "../project.ts";
@@ -26,9 +26,9 @@ const PALETTE = [
 const GRID = 20;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
 
-// Положение вывода компонента в мировых координатах.
+// Положение вывода компонента в мировых координатах (с учётом поворота).
 function pinPos(c: SchComponent, pin: string) {
-  const { dx, dy } = pinOffset(c.kind, pin);
+  const { dx, dy } = pinOffset(c.kind, pin, c.rot);
   return { x: c.x + dx, y: c.y + dy };
 }
 
@@ -49,6 +49,24 @@ export function SchematicView() {
   const floating = useMemo(() => new Set(runDrc(ucp.project).floating), [ucp.project]);
 
   // Маршруты проводов с объездом корпусов (пересчёт при изменении модели).
+  // Поворот выбранного компонента клавишей R (если вкладка видима и не ввод).
+  const rotateSel = () => {
+    const c = comps.find((x) => x.id === sel); if (!c) return;
+    ucp.updateComponent(c.id, { rot: (((c.rot ?? 0) + 90) % 360) }); ucp.markModified();
+  };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "r" || e.key === "R") && !e.ctrlKey && !e.metaKey && !e.altKey && sel) {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return;
+        if (!svgRef.current || svgRef.current.getBoundingClientRect().width === 0) return; // вкладка скрыта
+        e.preventDefault(); rotateSel();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
   const obstacles = useMemo(() => comps.map(bboxOf), [comps]);
   const wirePaths = useMemo(() => wires.map((w) => {
     const a = comps.find((c) => c.ref === w.from.ref), b = comps.find((c) => c.ref === w.to.ref);
@@ -183,10 +201,11 @@ export function SchematicView() {
               <label className="field">Value
                 <input value={selected.value} onChange={(e) => { ucp.updateComponent(selected.id, { value: e.target.value }); ucp.markModified(); }} />
               </label>
-              <div className="muted">Pos: {selected.x}, {selected.y}</div>
-              <button className="btn" onClick={() => { ucp.removeComponent(selected.id); setSel(null); }}>
-                Delete
-              </button>
+              <div className="muted">Pos: {selected.x}, {selected.y} · {selected.rot ?? 0}°</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn" style={{ flex: 1 }} onClick={rotateSel}>Rotate (R)</button>
+                <button className="btn" onClick={() => { ucp.removeComponent(selected.id); setSel(null); }}>Delete</button>
+              </div>
             </div>
           ) : <p className="muted">Выберите компонент на схеме.</p>}
         </div>
@@ -199,11 +218,12 @@ export function SchematicView() {
 // ортогональный маршрут A* с объездом корпусов компонентов (obstacles).
 function routeWire(a: SchComponent, ap: string, b: SchComponent, bp: string, obstacles: Rect[]): string {
   const p1 = pinPos(a, ap), p2 = pinPos(b, bp);
-  const ad = Math.sign(pinOffset(a.kind, ap).dx) || 1;   // сторона вывода (наружу)
-  const bd = Math.sign(pinOffset(b.kind, bp).dx) || 1;
-  const s1 = { x: p1.x + ad * 20, y: p1.y };
-  const s2 = { x: p2.x + bd * 20, y: p2.y };
-  const mid = routeOrthogonal(s1, s2, obstacles);
+  // выход стаба — наружу по направлению вывода (с учётом поворота)
+  const esc = (c: SchComponent, pin: string, p: { x: number; y: number }) => {
+    const o = pinOffset(c.kind, pin, c.rot), l = Math.hypot(o.dx, o.dy) || 1;
+    return { x: p.x + o.dx / l * 20, y: p.y + o.dy / l * 20 };
+  };
+  const mid = routeOrthogonal(esc(a, ap, p1), esc(b, bp, p2), obstacles);
   const raw = [p1, ...mid, p2];
   const out: { x: number; y: number }[] = [];
   for (const p of raw) { const last = out[out.length - 1]; if (!last || last.x !== p.x || last.y !== p.y) out.push(p); }
@@ -217,24 +237,26 @@ function CompSym({ c, selected, onPointerDown }: {
   const isU = c.kind === "U";
   return (
     <g transform={`translate(${c.x},${c.y})`} style={{ cursor: "grab" }} onPointerDown={onPointerDown}>
-      {/* стабы выводов */}
-      {pinsOf(c.kind).map((pin) => {
-        const { dx, dy } = pinOffset(c.kind, pin);
-        const ix = isU ? Math.sign(dx) * 22 : Math.sign(dx) * 16;
-        return <line key={pin} x1={dx} y1={dy} x2={ix} y2={dy} stroke={stroke} strokeWidth="2" />;
-      })}
-      {c.kind === "R" ? (
-        <rect x={-16} y={-8} width={32} height={16} fill="none" stroke={stroke} strokeWidth="2" />
-      ) : c.kind === "C" ? (
-        <>
-          <line x1={-3} y1={-12} x2={-3} y2={12} stroke={stroke} strokeWidth="2.5" />
-          <line x1={3} y1={-12} x2={3} y2={12} stroke={stroke} strokeWidth="2.5" />
-        </>
-      ) : isU ? (
-        <rect x={-22} y={-28} width={44} height={56} rx={3} fill="var(--raised)" stroke={stroke} strokeWidth="2" />
-      ) : (
-        <circle r={14} fill="none" stroke={stroke} strokeWidth="2" />
-      )}
+      {/* символ и стабы — поворачиваются; подписи остаются прямыми */}
+      <g transform={`rotate(${c.rot ?? 0})`}>
+        {pinsOf(c.kind).map((pin) => {
+          const { dx, dy } = pinOffset(c.kind, pin);
+          const ix = isU ? Math.sign(dx) * 22 : Math.sign(dx) * 16;
+          return <line key={pin} x1={dx} y1={dy} x2={ix} y2={dy} stroke={stroke} strokeWidth="2" />;
+        })}
+        {c.kind === "R" ? (
+          <rect x={-16} y={-8} width={32} height={16} fill="none" stroke={stroke} strokeWidth="2" />
+        ) : c.kind === "C" ? (
+          <>
+            <line x1={-3} y1={-12} x2={-3} y2={12} stroke={stroke} strokeWidth="2.5" />
+            <line x1={3} y1={-12} x2={3} y2={12} stroke={stroke} strokeWidth="2.5" />
+          </>
+        ) : isU ? (
+          <rect x={-22} y={-28} width={44} height={56} rx={3} fill="var(--raised)" stroke={stroke} strokeWidth="2" />
+        ) : (
+          <circle r={14} fill="none" stroke={stroke} strokeWidth="2" />
+        )}
+      </g>
       <text x={0} y={isU ? -34 : -22} textAnchor="middle" fill="var(--accent-soft)" fontSize="11" fontFamily="monospace">{c.ref}</text>
       <text x={0} y={isU ? 40 : 30} textAnchor="middle" fill="var(--muted)" fontSize="10" fontFamily="monospace">{c.value}</text>
     </g>

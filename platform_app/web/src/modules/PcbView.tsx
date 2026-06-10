@@ -58,7 +58,7 @@ export function PcbView() {
     const col = i % 3, row = Math.floor(i / 3);
     const x = 95 + col * 130, y = 100 + row * 90;
     const pads = pinsOf(c.kind).map((pin) => {
-      const o = pinOffset(c.kind, pin);
+      const o = pinOffset(c.kind, pin, c.rot);
       return { pin, x: x + o.dx * 0.7, y: y + o.dy * 0.9 };
     });
     return { ref: c.ref, kind: c.kind, x, y, pads };

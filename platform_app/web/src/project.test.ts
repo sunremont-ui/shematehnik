@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist, importKicadSch, exportBom } from "./project.ts";
+import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist, importKicadSch, exportBom, pinOffset } from "./project.ts";
 
 describe("project serialize/deserialize", () => {
   it("round-trips an empty project", () => {
@@ -127,6 +127,18 @@ describe("net labels", () => {
     const drc = runDrc(p);
     expect(drc.floating).not.toContain("R1.1");
     expect(drc.floating).not.toContain("U1.6");
+  });
+});
+
+describe("pinOffset rotation", () => {
+  it("rotates the pin offset by component angle", () => {
+    expect(pinOffset("R", "2")).toEqual({ dx: 24, dy: 0 });        // базовое
+    const r90 = pinOffset("R", "2", 90);
+    expect(Math.round(r90.dx)).toBe(0);
+    expect(Math.round(r90.dy)).toBe(24);
+    const r180 = pinOffset("R", "2", 180);
+    expect(Math.round(r180.dx)).toBe(-24);
+    expect(Math.round(r180.dy)).toBe(0);
   });
 });
 
