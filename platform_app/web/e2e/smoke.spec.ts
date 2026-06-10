@@ -26,7 +26,7 @@ test.describe("UCP web smoke", () => {
     const before = await page.locator(".chip", { hasText: /comps/ }).innerText();
 
     await openModule(page, "Schematic");
-    await page.getByRole("button", { name: /Resistor/ }).click();
+    await page.getByRole("button", { name: /Resistor/ }).first().click();
 
     await openModule(page, "Netlist");
     const after = await page.locator(".chip", { hasText: /comps/ }).innerText();

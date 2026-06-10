@@ -3,6 +3,7 @@ import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import type { SchComponent } from "../project.ts";
 import { pinsOf, pinOffset, runDrc } from "../project.ts";
+import { LIBRARY } from "../data/library.ts";
 import { routeOrthogonal, type Rect } from "../routing.ts";
 import { PanelHead } from "./common.tsx";
 
@@ -13,15 +14,6 @@ function bboxOf(c: SchComponent): Rect {
   const h = isU ? 30 : c.kind === "C" ? 14 : 10;
   return { x0: c.x - w, y0: c.y - h, x1: c.x + w, y1: c.y + h };
 }
-
-const PALETTE = [
-  { kind: "R", label: "Resistor", value: "10k" },
-  { kind: "C", label: "Capacitor", value: "100n" },
-  { kind: "L", label: "Inductor", value: "10u" },
-  { kind: "D", label: "Diode", value: "1N4148" },
-  { kind: "Q", label: "Transistor", value: "2N2222" },
-  { kind: "U", label: "IC", value: "STM32F401" },
-];
 
 const GRID = 20;
 const snap = (v: number) => Math.round(v / GRID) * GRID;
@@ -41,6 +33,7 @@ export function SchematicView() {
   const [wireMode, setWireMode] = useState(false);
   const [labelMode, setLabelMode] = useState(false);
   const [erc, setErc] = useState(false);
+  const [query, setQuery] = useState("");
   const [pending, setPending] = useState<{ ref: string; pin: string } | null>(null);
   const labels = ucp.project.labels;
   const labelOf = (ref: string, pin: string) => labels.find((l) => l.ref === ref && l.pin === pin)?.net;
@@ -121,16 +114,30 @@ export function SchematicView() {
           {erc && <span className="chip"><span className={`dot ${floating.size ? "warn" : "ok"}`} />{floating.size} floating</span>}
         </>
       } />
-      <div style={{ display: "grid", gridTemplateColumns: "150px 1fr 220px", gap: 12 }}>
-        {/* Palette */}
-        <div className="card" style={{ padding: 10 }}>
-          <div className="muted" style={{ marginBottom: 8, fontSize: 11 }}>COMPONENTS</div>
-          {PALETTE.map((p) => (
-            <button key={p.kind} className="btn" style={{ width: "100%", marginBottom: 6, textAlign: "left" }}
-              onClick={() => ucp.addComponent(p.kind, p.value)}>
-              <b>{p.kind}</b> · {p.label}
-            </button>
-          ))}
+      <div style={{ display: "grid", gridTemplateColumns: "190px 1fr 220px", gap: 12 }}>
+        {/* Библиотека компонентов с поиском */}
+        <div className="card" style={{ padding: 8, display: "flex", flexDirection: "column", maxHeight: 460 }}>
+          <input placeholder="Search library…" value={query} onChange={(e) => setQuery(e.target.value)} style={{ marginBottom: 6 }} />
+          <div style={{ overflowY: "auto", display: "grid", gap: 2 }}>
+            {(() => {
+              const q = query.trim().toLowerCase();
+              const parts = LIBRARY.filter((p) => !q || `${p.name} ${p.value} ${p.footprint} ${p.cat}`.toLowerCase().includes(q));
+              let lastCat = "";
+              return parts.map((p) => {
+                const head = p.cat !== lastCat ? (lastCat = p.cat) : null;
+                return (
+                  <div key={p.id}>
+                    {head && <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".5px", margin: "6px 0 2px" }}>{head}</div>}
+                    <button className="btn" style={{ width: "100%", textAlign: "left", padding: "4px 8px" }}
+                      title={`${p.desc} · ${p.footprint}`}
+                      onClick={() => ucp.addComponent(p.kind, p.value, p.footprint)}>
+                      <b>{p.kind}</b> {p.name} <span className="muted" style={{ fontSize: 10 }}>{p.value}</span>
+                    </button>
+                  </div>
+                );
+              });
+            })()}
+          </div>
         </div>
 
         {/* Canvas */}

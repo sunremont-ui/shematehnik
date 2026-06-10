@@ -22,7 +22,7 @@ export interface UcpState {
 
   // --- Общая модель проекта (единый источник правды) ---
   project: UcpProject;
-  addComponent: (kind: string, value: string) => void;
+  addComponent: (kind: string, value: string, footprint?: string) => void;
   updateComponent: (id: string, patch: Partial<SchComponent>) => void;
   removeComponent: (id: string) => void;
   addWire: (from: PinRef, to: PinRef) => void;

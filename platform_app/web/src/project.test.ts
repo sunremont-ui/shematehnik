@@ -107,14 +107,14 @@ describe("computeNets / exportNetlist", () => {
 });
 
 describe("exportBom", () => {
-  it("groups by kind+value and counts; CSV header", () => {
+  it("groups by kind+value with footprint column", () => {
     const p = emptyProject();
-    p.components.push({ id: "x", ref: "R2", kind: "R", value: "10k", x: 0, y: 0 }); // same as R1
+    p.components.push({ id: "x", ref: "R2", kind: "R", value: "10k", x: 0, y: 0, footprint: "R_0805" });
+    p.components[0].footprint = "R_0805";
     const lines = exportBom(p).split("\n");
-    expect(lines[0]).toBe("Designators,Value,Kind,Quantity");
-    const r10k = lines.find((l) => l.includes("10k"));
-    expect(r10k).toBe('"R1, R2",10k,R,2'); // сгруппированы, в кавычках из-за запятой
-    expect(lines).toHaveLength(4); // header + R(10k) + C(100n) + U(STM32F401)
+    expect(lines[0]).toBe("Designators,Value,Kind,Footprint,Quantity");
+    expect(lines.find((l) => l.includes("10k"))).toBe('"R1, R2",10k,R,R_0805,2');
+    expect(lines).toHaveLength(4);
   });
 });
 

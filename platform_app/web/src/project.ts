@@ -11,7 +11,8 @@ export interface SchComponent {
   value: string;   // 10k, 100n…
   x: number;
   y: number;
-  rot?: number;    // поворот символа, градусы (0/90/180/270)
+  rot?: number;        // поворот символа, градусы (0/90/180/270)
+  footprint?: string;  // посадочное место (из библиотеки)
 }
 
 // Провод соединяет два вывода: { refdes, pin "1"|"2" }.
@@ -62,6 +63,7 @@ export function deserialize(json: string): UcpProject {
       x: Number(c.x) || 0,
       y: Number(c.y) || 0,
       ...(rot ? { rot } : {}),     // опускаем при 0 (стабильный round-trip)
+      ...(c.footprint ? { footprint: String(c.footprint) } : {}),
     };
   });
   const refs = new Set(components.map((c) => c.ref));
@@ -181,19 +183,19 @@ export function exportNetlist(p: UcpProject): string {
 // Группирует компоненты по (kind, value); сортировка по типу/значению,
 // рефдесы — натуральной сортировкой. Поля экранируются по RFC 4180.
 export function exportBom(p: UcpProject): string {
-  const groups = new Map<string, { kind: string; value: string; refs: string[] }>();
+  const groups = new Map<string, { kind: string; value: string; footprint: string; refs: string[] }>();
   for (const c of p.components) {
     const key = `${c.kind} ${c.value}`;
-    const g = groups.get(key) ?? groups.set(key, { kind: c.kind, value: c.value, refs: [] }).get(key)!;
+    const g = groups.get(key) ?? groups.set(key, { kind: c.kind, value: c.value, footprint: c.footprint ?? "", refs: [] }).get(key)!;
     g.refs.push(c.ref);
   }
   const nat = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
   const esc = (s: string) => /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   const rows = [...groups.values()].sort((a, b) => a.kind === b.kind ? nat(a.value, b.value) : nat(a.kind, b.kind));
-  const lines = ["Designators,Value,Kind,Quantity"];
+  const lines = ["Designators,Value,Kind,Footprint,Quantity"];
   for (const g of rows) {
     g.refs.sort(nat);
-    lines.push([esc(g.refs.join(", ")), esc(g.value), esc(g.kind), String(g.refs.length)].join(","));
+    lines.push([esc(g.refs.join(", ")), esc(g.value), esc(g.kind), esc(g.footprint), String(g.refs.length)].join(","));
   }
   return lines.join("\n");
 }

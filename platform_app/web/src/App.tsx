@@ -139,9 +139,9 @@ export function App() {
     markModified: () => setModified(true),
 
     project,
-    addComponent: (kind, value) => setProject((p) => {
+    addComponent: (kind, value, footprint) => setProject((p) => {
       const ref = nextRef(p.components, kind);
-      const comp: SchComponent = { id: `c${Date.now()}`, ref, kind, value, x: 120, y: 80 };
+      const comp: SchComponent = { id: `c${Date.now()}`, ref, kind, value, x: 120, y: 80, ...(footprint ? { footprint } : {}) };
       setModified(true); setStatus(`Placed ${ref}`);
       return { ...p, components: [...p.components, comp] };
     }),
