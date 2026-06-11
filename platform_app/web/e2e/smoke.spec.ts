@@ -100,6 +100,17 @@ test.describe("UCP web smoke", () => {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 
+  test("OTA Flash: real-flash controls render (file, address, baud)", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto("/");
+    await openModule(page, "OTA Flash");
+    await expect(page.locator('input[type="file"][accept=".bin"]')).toBeAttached();
+    await expect(page.getByLabel("Flash address (hex)")).toHaveValue("0x10000");
+    await expect(page.getByRole("button", { name: /Flash firmware/ })).toBeVisible();
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+
   test("cross-module data flow: Schematic -> Netlist", async ({ page }) => {
     await page.goto("/");
     await openModule(page, "Netlist");

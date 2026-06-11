@@ -65,7 +65,7 @@ Programs/Analyzer; SPICE линейный; PCB-DRC без зазоров. При
 1. [x] **Serial-слой** `src/serial.ts` — open/close/read/write, feature-detect, общий порт между модулями
 2. [x] **UART Monitor реальный** — подключение к порту, hex/ascii, TX; симуляция остаётся фолбэком
 3. [x] **PID Tuner live** — телеметрия с реального устройства (сушилка/паяльник) на график
-4. [ ] **OTA Flash через esptool-js** — реальная прошивка ESP32 из браузера
+4. [x] **OTA Flash через esptool-js** — реальная прошивка ESP32 из браузера
 
 ## Фаза 11 — SPICE 2.0: нелинейные элементы 📈
 

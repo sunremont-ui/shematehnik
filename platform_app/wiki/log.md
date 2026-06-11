@@ -4,6 +4,14 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-11] feature | Web — фаза 10.4: OTA Flash через esptool-js — фаза 10 закрыта ✅
+
+- `OtaView.tsx`: реальная прошивка ESP32 — `esptool-js@0.6` лениво импортируется по клику Flash (отдельный чанк ~100 КБ, основной бандл не вырос); `requestPort` → `Transport` → `ESPLoader.main()` (имя чипа в чип-бейдж) → `writeFlash` (fileArray, flashMode/Freq/Size "keep", compress, reportProgress → прогресс-бар) → `after("hard_reset")`
+- UI: file-input `.bin`, hex-адрес (0x10000), baud 115200–921600, терминал esptool в лог-pane; перед запросом порта закрывается общий порт `serial.ts`
+- Без Web Serial — прежняя симуляция с чипом «симуляция (нет Web Serial)»; подсказка про кнопку BOOT
+- deps: `esptool-js@0.6.0`, `@types/w3c-web-serial` (dev); Playwright 9 (+OTA controls); Vitest 59; build чист
+- Ручная проверка с ESP32 по USB — за пользователем
+
 ## [2026-06-11] feature | Web — фаза 10.1–10.3: Web Serial (UART Monitor + PID live)
 
 - **`src/serial.ts`** — общий слой Web Serial: один порт на приложение, стор `useSerial()` (supported/status/info/baud), `serialOpen/serialClose/serialWrite/onSerialData` (несколько подписчиков), read-loop по chromium-паттерну (восстановимые ошибки → новый reader; отключение устройства → closed)
