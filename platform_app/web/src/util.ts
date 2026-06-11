@@ -8,3 +8,13 @@ export function downloadText(filename: string, text: string, mime = "text/plain"
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// Скачивание бинарного блоба (STL и т.п.).
+export function downloadBlob(filename: string, data: BlobPart, mime = "application/octet-stream") {
+  const url = URL.createObjectURL(new Blob([data], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}

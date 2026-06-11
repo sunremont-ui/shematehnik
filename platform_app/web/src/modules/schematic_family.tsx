@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { rcLowpass, mnaDc, useCoreBackend } from "../core/ucpCore.ts";
+import { useCoreBackend } from "../core/ucpCore.ts";
 import { computeNets, exportNetlist, exportBom } from "../project.ts";
+import { buildNodes, buildElements, nodeLabel, transient, acSweep, dcSolve, type Elem } from "../spice.ts";
 import { downloadText } from "../util.ts";
 
 function EngineBadge({ backend }: { backend: string }) {
@@ -158,121 +159,202 @@ export function NetlistView() {
 }
 
 // ============================================================
-// SPICE — симулятор с осциллограммой
+// SPICE — настоящий узловой анализатор по топологии схемы.
+// DC / Transient / AC решаются MNA-движком (src/spice.ts) поверх реальных
+// узлов проекта; источник возбуждения задаётся в панели (как .tran/.ac).
 // ============================================================
+type Mode = "dc" | "tran" | "ac";
+
 export function SpiceView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["spice"];
   const backend = useCoreBackend();
-  const [r, setR] = useState(1000);     // Ом
-  const [cuf, setCuf] = useState(200);  // мкФ
-  const [freq, setFreq] = useState(2);  // Гц
-  // DC operating point: делитель Vin–R1–(node2)–R2–GND, решается MNA в ядре
-  const [vin, setVin] = useState(5);
-  const [r1, setR1] = useState(1000);
-  const [r2, setR2] = useState(2000);
-  const dc = useMemo(() => mnaDc(3, [
-    { type: 1, n1: 1, n2: 0, value: vin },
-    { type: 0, n1: 1, n2: 2, value: r1 },
-    { type: 0, n1: 2, n2: 0, value: r2 },
-  ]), [vin, r1, r2, backend]);
-  const vout = dc[2] ?? 0, current = (vin - 0) / (r1 + r2);
-  const [running, setRunning] = useState(false);
-  const [phase, setPhase] = useState(0);
   const cv = useRef<HTMLCanvasElement>(null);
 
-  const netlist =
-    `* RC low-pass\nV1 in 0 SIN(0 1 ${freq})\nR1 in out ${r}\nC1 out 0 ${cuf}u\n.tran 2.5m 1\n.end`;
+  // Узлы и элементы из реальной модели проекта.
+  const model = useMemo(() => {
+    const nodes = buildNodes(ucp.project);
+    const elems = buildElements(ucp.project, nodes);
+    // степень узла = число выводов элементов, касающихся узла
+    const deg = new Array(nodes.groups.length).fill(0);
+    for (const e of elems) { deg[e.a]++; deg[e.b]++; }
+    const touched = nodes.groups.filter((g) => deg[g.id] > 0).map((g) => g.id);
+    return { nodes, elems, deg, touched };
+  }, [ucp.project]);
 
-  // V(out) считает ядро (RC-транзиент, Эйлер); V(in) — опорный синус.
-  const data = useMemo(() => {
-    const N = 400, tEnd = 1;
-    const vout = rcLowpass(r, cuf * 1e-6, 1, freq, tEnd, N); // ← ядро (WASM/JS)
-    const pts: [number, number][] = [];
-    for (let i = 0; i < N; i++) {
-      const t = (i / N) * tEnd;
-      pts.push([Math.sin(2 * Math.PI * freq * t), vout[i]]);
-    }
-    return pts;
-  }, [r, cuf, freq, backend]);
+  const { nodes, elems, deg, touched } = model;
 
+  // Дефолтный выбор портов: junction (max degree) = probe, два degree-1 = in/gnd.
+  const def = useMemo(() => {
+    const junction = touched.slice().sort((a, b) => deg[b] - deg[a])[0] ?? 0;
+    const ends = touched.filter((n) => deg[n] === 1);
+    return { input: ends[0] ?? junction, ground: ends[1] ?? touched.find((n) => n !== junction) ?? 0, probe: junction };
+  }, [touched, deg]);
+
+  const [mode, setMode] = useState<Mode>("ac");
+  const [input, setInput] = useState(def.input);
+  const [ground, setGround] = useState(def.ground);
+  const [probe, setProbe] = useState(def.probe);
+  // стимул транзиента
+  const [stim, setStim] = useState<"step" | "sine">("step");
+  const [amp, setAmp] = useState(1);
+  const [sfreq, setSfreq] = useState(100);
+  const [tEnd, setTEnd] = useState(5);   // в мс
+  // AC-свип
+  const [f1, setF1] = useState(1), [f2, setF2] = useState(100000);
+
+  // переинициализация портов при смене топологии
+  useEffect(() => { setInput(def.input); setGround(def.ground); setProbe(def.probe); }, [def.input, def.ground, def.probe]);
+
+  const opt = (id: number) => <option key={id} value={id}>{nodeLabel(nodes.groups[id])}</option>;
+  const nodeOpts = nodes.groups.map((g) => opt(g.id));
+
+  const ready = elems.length > 0 && input !== ground;
+
+  // --- вычисления ---
+  const dc = useMemo(() => ready && mode === "dc"
+    ? dcSolve({ numNodes: nodes.groups.length, ground, input, vsrc: amp, elems })
+    : null, [ready, mode, nodes.groups.length, ground, input, amp, elems]);
+
+  const tran = useMemo(() => {
+    if (!ready || mode !== "tran") return null;
+    const tE = tEnd / 1000;
+    const stimulus = stim === "step" ? () => amp : (t: number) => amp * Math.sin(2 * Math.PI * sfreq * t);
+    return transient({ numNodes: nodes.groups.length, ground, input, stimulus, elems, tEnd: tE, steps: 600 });
+  }, [ready, mode, tEnd, stim, amp, sfreq, ground, input, elems, nodes.groups.length]);
+
+  const ac = useMemo(() => {
+    if (!ready || mode !== "ac") return null;
+    return acSweep({ numNodes: nodes.groups.length, ground, input, probe, elems, fStart: f1, fStop: f2, points: 200 });
+  }, [ready, mode, f1, f2, ground, input, probe, elems, nodes.groups.length]);
+
+  // --- отрисовка ---
   useEffect(() => {
     const c = cv.current; if (!c) return;
-    const ctx = c.getContext("2d")!, W = c.width, H = c.height, mid = H / 2;
+    const ctx = c.getContext("2d")!, W = c.width, H = c.height;
     const css = getComputedStyle(document.documentElement);
     const col = (n: string) => css.getPropertyValue(n).trim();
     ctx.clearRect(0, 0, W, H);
-    ctx.strokeStyle = col("--border"); ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
-    const visN = running ? Math.min(data.length, Math.floor(phase)) : data.length;
-    const draw = (idx: 0 | 1, color: string) => {
-      ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
-      for (let i = 0; i < visN; i++) { const x = (i / data.length) * W, y = mid - data[i][idx] * (H * 0.4); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
-      ctx.stroke();
-    };
-    draw(0, col("--muted")); draw(1, col("--accent-soft"));
-  }, [data, phase, running]);
+    ctx.strokeStyle = col("--border"); ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) { const y = (i / 4) * H; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
 
-  useEffect(() => {
-    if (!running) return;
-    let raf = 0, p = 0;
-    const tick = () => { p += 8; setPhase(p); if (p < data.length) raf = requestAnimationFrame(tick); else { setRunning(false); ucp.setStatus("SPICE: transient done"); } };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [running, data.length, ucp]);
+    if (mode === "tran" && tran) {
+      const all = nodes.groups.map((_, n) => tran.v[n]).flat();
+      const vmax = Math.max(1e-6, ...all.map(Math.abs));
+      const ty = (val: number) => H / 2 - (val / vmax) * (H * 0.42);
+      const series: [number[], string][] = [[tran.v[input], col("--muted")], [tran.v[probe], col("--accent-soft")]];
+      for (const [s, color] of series) {
+        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
+        for (let i = 0; i < s.length; i++) { const x = (i / (s.length - 1)) * W; i ? ctx.lineTo(x, ty(s[i])) : ctx.moveTo(x, ty(s[i])); }
+        ctx.stroke();
+      }
+    } else if (mode === "ac" && ac) {
+      const lo = Math.min(...ac.magDb), hi = Math.max(...ac.magDb, 0);
+      const my = (db: number) => H * 0.1 + (1 - (db - lo) / Math.max(1e-6, hi - lo)) * H * 0.55;
+      const py = (ph: number) => H * 0.7 + (1 - (ph + 180) / 360) * H * 0.25;
+      ctx.strokeStyle = col("--accent-soft"); ctx.lineWidth = 2; ctx.beginPath();
+      ac.magDb.forEach((db, i) => { const x = (i / (ac.magDb.length - 1)) * W; i ? ctx.lineTo(x, my(db)) : ctx.moveTo(x, my(db)); });
+      ctx.stroke();
+      ctx.strokeStyle = col("--muted"); ctx.lineWidth = 1.5; ctx.beginPath();
+      ac.phaseDeg.forEach((ph, i) => { const x = (i / (ac.phaseDeg.length - 1)) * W; i ? ctx.lineTo(x, py(ph)) : ctx.moveTo(x, py(ph)); });
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = col("--muted"); ctx.font = "13px monospace";
+      ctx.fillText(ready ? "DC operating point — см. таблицу" : "Нет R/C/L в схеме или input = ground", 16, H / 2);
+    }
+  }, [mode, tran, ac, ready, input, probe, nodes.groups]);
+
+  function exportNet() {
+    const lines = ["* UCP SPICE netlist (auto)",
+      ...elems.map((e: Elem) => `${e.ref} N${e.a} N${e.b} ${e.value}`),
+      `V1 N${input} N${ground} ${stim === "step" ? `DC ${amp}` : `SIN(0 ${amp} ${sfreq})`}`,
+      mode === "ac" ? `.ac dec 200 ${f1} ${f2}` : mode === "tran" ? `.tran ${(tEnd / 1000 / 600).toExponential(2)} ${(tEnd / 1000)}` : ".op", ".end"];
+    downloadText(`${ucp.projectName}.cir`, lines.join("\n"));
+    ucp.setStatus(`Exported ${ucp.projectName}.cir`);
+  }
 
   return (
     <div>
       <PanelHead mod={mod} right={<>
         <EngineBadge backend={backend} />
-        <button className="btn primary" onClick={() => { setPhase(0); setRunning(true); ucp.setStatus("ngspice: running .tran"); }}>▶ Run</button>
+        <span className="chip"><span className="dot ok" />{elems.length} R/C/L</span>
+        <button className="btn" onClick={exportNet}>Export .cir</button>
       </>} />
-      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 14 }}>
-        <div className="card" style={{ padding: 10, display: "grid", gap: 10 }}>
-          <div className="muted" style={{ fontSize: 11 }}>NETLIST</div>
-          <textarea rows={6} value={netlist} readOnly style={{ width: "100%" }} />
-          <div className="muted" style={{ fontSize: 11 }}>PARAMETERS</div>
-          {[
-            { l: "R, Ом", v: r, set: setR, min: 100, max: 5000, step: 100 },
-            { l: "C, мкФ", v: cuf, set: setCuf, min: 10, max: 1000, step: 10 },
-            { l: "f, Гц", v: freq, set: setFreq, min: 0.5, max: 10, step: 0.5 },
-          ].map((p) => (
-            <label key={p.l} className="field" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 56 }}>{p.l}</span>
-              <input type="range" min={p.min} max={p.max} step={p.step} value={p.v} style={{ flex: 1 }}
-                onChange={(e) => p.set(parseFloat(e.target.value))} />
-              <span style={{ width: 44, textAlign: "right", fontFamily: "monospace" }}>{p.v}</span>
-            </label>
-          ))}
-          <div className="muted" style={{ fontSize: 11 }}>fc ≈ {(1 / (2 * Math.PI * r * cuf * 1e-6)).toFixed(2)} Гц</div>
+      <p className="panel-sub">Узлы и номиналы — из реальной схемы. Источник возбуждения и анализ задаются ниже (как .op/.tran/.ac).</p>
+      <div className="toolbar">
+        <span className="muted">Analysis:</span>
+        {(["dc", "tran", "ac"] as const).map((m) => (
+          <button key={m} className={`btn${mode === m ? " primary" : ""}`} onClick={() => setMode(m)}>{m.toUpperCase()}</button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 14 }}>
+        <div className="card" style={{ padding: 10, display: "grid", gap: 8, alignContent: "start" }}>
+          <div className="muted" style={{ fontSize: 11 }}>PORTS</div>
+          <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 64 }}>Source +</span>
+            <select value={input} onChange={(e) => setInput(+e.target.value)} style={{ flex: 1 }}>{nodeOpts}</select>
+          </label>
+          <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 64 }}>Ground</span>
+            <select value={ground} onChange={(e) => setGround(+e.target.value)} style={{ flex: 1 }}>{nodeOpts}</select>
+          </label>
+          <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <span style={{ width: 64 }}>Probe</span>
+            <select value={probe} onChange={(e) => setProbe(+e.target.value)} style={{ flex: 1 }}>{nodeOpts}</select>
+          </label>
+
+          {mode === "dc" && (
+            <Slider l="Vsrc, В" v={amp} set={setAmp} min={0} max={12} step={0.5} />
+          )}
+          {mode === "tran" && <>
+            <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>STIMULUS</div>
+            <div className="toolbar" style={{ margin: 0 }}>
+              {(["step", "sine"] as const).map((s) => <button key={s} className={`btn${stim === s ? " primary" : ""}`} onClick={() => setStim(s)}>{s}</button>)}
+            </div>
+            <Slider l="Amp, В" v={amp} set={setAmp} min={0.5} max={10} step={0.5} />
+            {stim === "sine" && <Slider l="f, Гц" v={sfreq} set={setSfreq} min={1} max={2000} step={1} />}
+            <Slider l="t, мс" v={tEnd} set={setTEnd} min={1} max={50} step={1} />
+          </>}
+          {mode === "ac" && <>
+            <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>SWEEP</div>
+            <Slider l="f₁, Гц" v={f1} set={setF1} min={1} max={1000} step={1} />
+            <Slider l="f₂, Гц" v={f2} set={setF2} min={1000} max={1000000} step={1000} />
+          </>}
         </div>
         <div className="card" style={{ padding: 12 }}>
           <canvas ref={cv} width={640} height={320} style={{ width: "100%", height: "auto" }} />
-          <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
-            <span className="chip"><span className="dot" style={{ background: "var(--muted)" }} />V(in)</span>
-            <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />V(out)</span>
+          <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
+            {mode === "tran" && <>
+              <span className="chip"><span className="dot" style={{ background: "var(--muted)" }} />V(source)</span>
+              <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />V(probe)</span>
+            </>}
+            {mode === "ac" && <>
+              <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />|H| дБ</span>
+              <span className="chip"><span className="dot" style={{ background: "var(--muted)" }} />phase °</span>
+            </>}
+            {mode === "dc" && dc && (
+              <table className="tbl" style={{ width: "100%" }}><tbody>
+                {touched.map((n) => <tr key={n}><td>{nodeLabel(nodes.groups[n])}</td><td><code>{dc[n].toFixed(4)} В</code></td></tr>)}
+              </tbody></table>
+            )}
+            {mode === "ac" && ac && (() => {
+              const i3 = ac.magDb.findIndex((d) => d <= ac.magDb[0] - 3);
+              return <span className="muted" style={{ fontSize: 12 }}>{i3 > 0 ? `f(-3дБ) ≈ ${ac.f[i3].toFixed(1)} Гц` : "—"}</span>;
+            })()}
           </div>
         </div>
       </div>
-      <div className="card" style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 240px", gap: 14, alignItems: "center" }}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <div className="muted" style={{ fontSize: 11 }}>DC OPERATING POINT — делитель Vin–R1–R2 (узловые напряжения, MNA в ядре)</div>
-          {[
-            { l: "Vin, В", v: vin, set: setVin, min: 1, max: 12, step: 0.5 },
-            { l: "R1, Ом", v: r1, set: setR1, min: 100, max: 10000, step: 100 },
-            { l: "R2, Ом", v: r2, set: setR2, min: 100, max: 10000, step: 100 },
-          ].map((p) => (
-            <label key={p.l} className="field" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 56 }}>{p.l}</span>
-              <input type="range" min={p.min} max={p.max} step={p.step} value={p.v} style={{ flex: 1 }} onChange={(e) => p.set(parseFloat(e.target.value))} />
-              <span style={{ width: 56, textAlign: "right", fontFamily: "monospace" }}>{p.v}</span>
-            </label>
-          ))}
-        </div>
-        <table className="tbl"><tbody>
-          <tr><td>V(node2)</td><td><code>{vout.toFixed(3)} В</code></td></tr>
-          <tr><td>I</td><td><code>{(current * 1000).toFixed(3)} мА</code></td></tr>
-        </tbody></table>
-      </div>
     </div>
+  );
+}
+
+// Маленький слайдер-параметр (label + range + значение).
+function Slider({ l, v, set, min, max, step }: { l: string; v: number; set: (n: number) => void; min: number; max: number; step: number }) {
+  return (
+    <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <span style={{ width: 56 }}>{l}</span>
+      <input type="range" min={min} max={max} step={step} value={v} style={{ flex: 1 }} onChange={(e) => set(parseFloat(e.target.value))} />
+      <span style={{ width: 56, textAlign: "right", fontFamily: "monospace" }}>{v}</span>
+    </label>
   );
 }

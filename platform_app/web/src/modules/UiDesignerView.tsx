@@ -2,23 +2,28 @@ import { useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-
-interface W { id: number; type: string; x: number; y: number; w: number; h: number; text: string; }
+import { uiDesign, type UiW as W } from "../design.ts";
+import { genLvgl } from "../codegen.ts";
+import { downloadText } from "../util.ts";
 
 const TYPES = ["Button", "Label", "Slider", "Switch", "Arc", "Chart", "Gauge", "Bar", "Panel", "Dropdown", "Checkbox", "Roller", "TextArea", "Image", "NavList"];
 
 export function UiDesignerView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["ui"];
-  const [widgets, setWidgets] = useState<W[]>([
-    { id: 1, type: "Label", x: 30, y: 20, w: 180, h: 28, text: "Dryer 60°C" },
-    { id: 2, type: "Arc", x: 60, y: 70, w: 120, h: 120, text: "" },
-    { id: 3, type: "Button", x: 40, y: 210, w: 160, h: 40, text: "START" },
-  ]);
+  const widgets = uiDesign.use();
+  const setWidgets = (u: W[] | ((w: W[]) => W[])) => uiDesign.update(typeof u === "function" ? (u as (w: W[]) => W[]) : () => u);
   const [sel, setSel] = useState<number | null>(1);
   const drag = useRef<{ id: number; dx: number; dy: number } | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
-  const nextId = useRef(4);
+  const nextId = useRef(Math.max(0, ...widgets.map((w) => w.id)) + 1);
+
+  function exportC() {
+    const { c, h } = genLvgl(widgets, "main");
+    downloadText("ui.c", c, "text/x-c");
+    downloadText("ui.h", h, "text/x-c");
+    ucp.setStatus(`Exported ui.c / ui.h — ${widgets.length} widgets (LVGL)`);
+  }
 
   function add(type: string) {
     const id = nextId.current++;
@@ -41,7 +46,7 @@ export function UiDesignerView() {
 
   return (
     <div>
-      <PanelHead mod={mod} right={<button className="btn primary" onClick={() => ucp.setStatus("Exported ui.c / ui.h (LVGL)")}>Export C</button>} />
+      <PanelHead mod={mod} right={<button className="btn primary" onClick={exportC}>Export C</button>} />
       <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 220px", gap: 12 }}>
         <div className="card" style={{ padding: 8, maxHeight: 460, overflow: "auto" }}>
           <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>WIDGETS</div>
