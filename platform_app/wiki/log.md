@@ -4,6 +4,20 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-11] plan | Web Frontend — roadmap цикл 2 (фазы 10–17) + скиллы
+
+- Исследование границы «реальное/мок»: мок остались UART Monitor, OTA, AI, Programs, Analyzer, Firmware/Agent; SPICE только линейный (R/C/L); PCB-DRC без зазоров
+- [roadmap-web.md](roadmap-web.md): добавлены фазы 10–17 — Web Serial (UART/PID live/esptool-js OTA), SPICE 2.0 (диод/BJT/MOSFET, Ньютон-Рафсон), PCB Pro (clearance-DRC, ручные дорожки, pour, P&P), Schematic UX, библиотека (custom parts, `.kicad_sym`), кросс-модули (FSM-генератор, Analyzer по `design.ts`, AI опц.), гигиена (`.ucp` v2, code-split three, PWA), 6 новых модулей
+- Новые скиллы `/ucp-web-impl-*` (по одному на пункт/группу) + дашборд `/ucp-web-roadmap`; обновлены `/ucp-web`, [skills.md](skills.md)
+- Конвенция логов: после каждого пункта — галочка в roadmap-web + запись сюда (файлы, тесты, коммит)
+
+## [2026-06-10] feature | Web — фаза 8.3–8.5: реальный SPICE, three.js, генераторы
+
+- **SPICE по топологии** (`src/spice.ts`): узлы из проводов+меток (`buildNodes`), номиналы `parseValue` (10k/100n), режимы DC/TRAN (backward-Euler companion C/L)/AC (комплексный MNA → Боде); панель выбора source/ground/probe; экспорт `.cir`
+- **3D на three.js** (`src/three/`): WebGL-меш платы + OrbitControls, экспорт бинарный STL + STEP AP214; Part Editor рендерит CSG тем же вьюпортом; deps `three@0.184`
+- **Настоящие генераторы** (`src/codegen.ts` + общий стор `src/design.ts`): LVGL ui.c/ui.h из виджетов, C-struct/парсер пакета (C/Python, CRC), параметрический Arduino/ESP-IDF; Sequence → PNG
+- Тесты: Vitest 50 (spice/codegen/exporters), Playwright 6; обновлён [Web Frontend](modules/web_frontend.md)
+
 ## [2026-06-10] update | Web Frontend — A* routing, layers, KiCad import
 
 - Роутер `src/routing.ts`: A* по сетке с объездом препятствий (`routeOrthogonal`/`routeOrthogonalEx`) — общий для Schematic (объезд корпусов) и PCB (объезд футпринтов)

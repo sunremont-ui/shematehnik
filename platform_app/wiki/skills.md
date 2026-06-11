@@ -10,6 +10,29 @@ Available slash commands when working in this repository.
 | `/ucp-test` | Запуск всех трёх test-суитов с `ctest --output-on-failure` |
 | `/ucp-roadmap` | Дашборд прогресса по roadmap: что сделано, что следующее |
 | `/ucp-web` | Сборка/запуск/проверка веб-фронтенда (React+TS+Vite) в `platform_app/web/`. См. [Web Frontend](modules/web_frontend.md) |
+| `/ucp-web-roadmap` | Дашборд roadmap веб-фронтенда (цикл 2, фазы 10–17) |
+| `/ucp-web-module` | Добавить/расширить модуль веб-фронтенда |
+| `/ucp-web-route` | A*-роутер: устройство и тюнинг |
+
+## UCP Web — Implementation (цикл 2, фазы 10–17)
+
+См. [roadmap-web.md](roadmap-web.md). Конвенция: после пункта — галочка в roadmap + запись в [log.md](log.md) + коммит.
+
+| Команда | Фаза | Назначение |
+|---------|------|-----------|
+| `/ucp-web-impl-serial` | 10.1–10.3 | Web Serial: слой `serial.ts`, реальный UART Monitor, PID live-телеметрия |
+| `/ucp-web-impl-ota` | 10.4 | Реальная прошивка ESP32 через esptool-js |
+| `/ucp-web-impl-spice-nonlinear` | 11 | Диод/BJT/MOSFET (Ньютон-Рафсон), DC sweep, курсоры/CSV |
+| `/ucp-web-impl-pcb-drc` | 12.1 | Clearance-DRC: зазоры дорожка/пад/via |
+| `/ucp-web-impl-pcb-edit` | 12.2–12.5 | Ручные дорожки, copper pour, контур+silkscreen, pick-and-place |
+| `/ucp-web-impl-sch-ux` | 13 | Multi-select, copy/paste, junction dots, inline edit, ERC типы пинов |
+| `/ucp-web-impl-library` | 14 | Пользовательские детали (Symbol Editor), импорт `.kicad_sym`, 50+ деталей |
+| `/ucp-web-impl-fsm` | 15.1 | Визуальный FSM-редактор → генерация C switch-case |
+| `/ucp-web-impl-analyzer` | 15.2 | Реальный декод: Packet Editor → UART capture → Analyzer |
+| `/ucp-web-impl-ai` | 15.3 | (опц.) AI Schematic через Claude API с ключом пользователя |
+| `/ucp-web-impl-project-v2` | 16.1 | `.ucp` v2 — все артефакты в одном файле + миграция |
+| `/ucp-web-impl-system` | 16.2–16.6 | Code-split three, FS Access API, PWA, error boundary, Ctrl+K |
+| `/ucp-web-impl-new-modules` | 17 | Filter Designer, Pin Planner, EE Calculators, Logic Analyzer, Power Budget, Register Map |
 
 ## Firmware Project (v3.1)
 

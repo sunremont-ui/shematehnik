@@ -42,6 +42,20 @@ in `bindings.cpp`, add a JS fallback + wrapper in `src/core/ucpCore.ts`,
 and a Vitest vector. Show the `engine: wasm|js` badge via `useCoreBackend()`.
 Rebuild: `npm run build:wasm` (see `/ucp-web`).
 
+Pure TS solvers that don't need C++ can live in their own module + test
+(e.g. `src/spice.ts` = DC/TRAN/AC over the project topology, `spice.test.ts`).
+
+## Cross-module shared artifacts → `src/design.ts`
+
+When two modules must share editable data (an editor + a generator), don't
+duplicate state — put it in the shared store `src/design.ts` (tiny
+`useSyncExternalStore`: `uiDesign` widgets, `packet` fields). Pattern:
+`const items = store.use();` to read, `store.update(fn)` to write. Code
+generators are pure fns in `src/codegen.ts` (`genLvgl`/`genPacketStruct`/
+`genProtoParser`/`genBlink`) consumed by both the editor's Export and the
+CodeGen view. 3D meshes/exporters live in `src/three/` (board, ThreeStage,
+exporters); render via `<ThreeStage object={group} />`.
+
 ## Checklist
 
 - [ ] `MODULE_TREE` entry + `ModuleView` case + `*View.tsx`
