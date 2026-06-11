@@ -20,6 +20,8 @@ export interface PinRef { ref: string; pin: string; }
 export interface SchWire { from: PinRef; to: PinRef; }
 // Net-метка / power-символ: привязывает имя цепи к выводу (связь без провода).
 export interface NetLabel { ref: string; pin: string; net: string; }
+// Разведённая PCB-дорожка: сигнатура провода + слой + полилиния (px сцены).
+export interface PcbTrack { sig: string; layer: "F" | "B"; points: { x: number; y: number }[]; }
 
 export interface UcpProject {
   version: 1;
@@ -27,6 +29,8 @@ export interface UcpProject {
   components: SchComponent[];
   wires: SchWire[];
   labels: NetLabel[];
+  tracks: PcbTrack[];
+  board?: { w: number; h: number };   // размер платы, мм
 }
 
 export function emptyProject(name = "Untitled Project"): UcpProject {
@@ -42,6 +46,7 @@ export function emptyProject(name = "Untitled Project"): UcpProject {
       { from: { ref: "R1", pin: "2" }, to: { ref: "C1", pin: "1" } },
     ],
     labels: [],
+    tracks: [],
   };
 }
 
@@ -73,12 +78,24 @@ export function deserialize(json: string): UcpProject {
   const labels = (Array.isArray(raw.labels) ? raw.labels : [])
     .filter((l): l is NetLabel => !!l && refs.has(l.ref) && !!l.net)
     .map((l) => ({ ref: l.ref, pin: String(l.pin), net: String(l.net) }));
+  // дорожки: сигнатура провода должна существовать, ≥2 валидных точек
+  const wireSigs = new Set(wires.flatMap((w) => [
+    `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}`,
+    `${w.to.ref}.${w.to.pin}-${w.from.ref}.${w.from.pin}`,
+  ]));
+  const tracks = (Array.isArray(raw.tracks) ? raw.tracks : [])
+    .filter((t): t is PcbTrack => !!t && typeof t.sig === "string" && wireSigs.has(t.sig)
+      && (t.layer === "F" || t.layer === "B") && Array.isArray(t.points) && t.points.length >= 2)
+    .map((t) => ({ sig: t.sig, layer: t.layer, points: t.points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) }));
+  const bw = Number(raw.board?.w), bh = Number(raw.board?.h);
   return {
     version: 1,
     name: typeof raw.name === "string" ? raw.name : "Untitled Project",
     components,
     wires,
     labels,
+    tracks,
+    ...(bw > 0 && bh > 0 ? { board: { w: bw, h: bh } } : {}),
   };
 }
 
@@ -261,7 +278,7 @@ export function importNetlist(text: string, name = "Imported"): UcpProject {
       .filter((p) => validPin.get(p.ref)?.has(p.pin));
     for (let j = 1; j < nodes.length; j++) wires.push({ from: nodes[0], to: nodes[j] }); // звезда
   }
-  return { version: 1, name, components, wires, labels: [] };
+  return { version: 1, name, components, wires, labels: [], tracks: [] };
 }
 
 // Рекурсивно собрать пины (number + относительная точка подключения `at`).
@@ -357,7 +374,7 @@ export function importKicadSch(text: string, name = "KiCad import"): UcpProject 
   // отбрасываем цепи на выводы вне модели (pinsOf) — наша модель фиксирована
   const valid = new Map(components.map((c) => [c.ref, new Set(pinsOf(c.kind))]));
   const keptWires = wires.filter((w) => refs.has(w.from.ref) && refs.has(w.to.ref) && valid.get(w.from.ref)?.has(w.from.pin) && valid.get(w.to.ref)?.has(w.to.pin));
-  return { version: 1, name, components, wires: keptWires, labels: [] };
+  return { version: 1, name, components, wires: keptWires, labels: [], tracks: [] };
 }
 
 // Следующий refdes для типа (R1→R2…), исходя из уже занятых.

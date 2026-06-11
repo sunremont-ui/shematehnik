@@ -172,6 +172,8 @@ export function App() {
       setModified(true); setStatus(net ? `Net "${net}" on ${ref}.${pin}` : `Label removed ${ref}.${pin}`);
       return { ...p, labels: net ? [...others, { ref, pin, net }] : others };
     }),
+    setTracks: (tracks) => { setProject((p) => ({ ...p, tracks })); setModified(true); },
+    setBoard: (w, h) => { setProject((p) => ({ ...p, board: { w, h } })); setModified(true); },
     loadProject: (p) => { setProject(p); setModified(false); },
 
     undo, redo,

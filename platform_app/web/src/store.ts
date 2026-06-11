@@ -3,7 +3,7 @@
 // ============================================================
 import { createContext, useContext } from "react";
 import type { ModuleKind } from "./data/modules.ts";
-import type { PinRef, SchComponent, UcpProject } from "./project.ts";
+import type { PcbTrack, PinRef, SchComponent, UcpProject } from "./project.ts";
 
 export interface UcpState {
   projectName: string;
@@ -28,6 +28,8 @@ export interface UcpState {
   addWire: (from: PinRef, to: PinRef) => void;
   removeWire: (index: number) => void;
   setLabel: (ref: string, pin: string, net: string) => void;  // net="" → снять
+  setTracks: (tracks: PcbTrack[]) => void;  // PCB: разводка/правка/удаление дорожек
+  setBoard: (w: number, h: number) => void; // PCB: размер платы, мм
   loadProject: (p: UcpProject) => void;     // File → Open
 
   // --- История (undo/redo, с коалесингом перетаскивания) ---

@@ -111,6 +111,23 @@ test.describe("UCP web smoke", () => {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 
+  test("PCB: route all -> tracks persist, DRC and pour controls work", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await page.goto("/");
+    await openModule(page, "PCB Layout");
+    await page.getByRole("button", { name: "Route all" }).click();
+    await expect(page.locator("polyline")).not.toHaveCount(0);   // дорожка в SVG
+    await page.getByRole("button", { name: "Run DRC" }).click();
+    await expect(page.locator(".chip", { hasText: "clearance" })).toBeVisible();
+    await expect(page.locator(".chip", { hasText: "floating" })).toBeVisible();
+    // дорожки в модели → переживают переключение модулей (keep-alive + store)
+    await openModule(page, "Schematic");
+    await openModule(page, "PCB Layout");
+    await expect(page.locator("polyline")).not.toHaveCount(0);
+    expect(errors, errors.join("\n")).toEqual([]);
+  });
+
   test("cross-module data flow: Schematic -> Netlist", async ({ page }) => {
     await page.goto("/");
     await openModule(page, "Netlist");

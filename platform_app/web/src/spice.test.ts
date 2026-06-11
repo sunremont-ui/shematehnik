@@ -12,6 +12,7 @@ function rcProject(): UcpProject {
     ],
     wires: [{ from: { ref: "R1", pin: "2" }, to: { ref: "C1", pin: "1" } }],
     labels: [],
+    tracks: [],
   };
 }
 

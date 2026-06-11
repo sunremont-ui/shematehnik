@@ -4,6 +4,15 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-12] feature | Web — фаза 12: PCB Pro ✅
+
+- **Дорожки в модели**: `UcpProject.tracks` (`PcbTrack{sig,layer,points}`) + `board{w,h}` мм — undo/redo и автосейв бесплатно; `deserialize` валидирует (sig живого провода, ≥2 точек); store: `setTracks`/`setBoard`; project.ts перекодирован UTF-16→UTF-8
+- **Новый чистый модуль `src/pcb.ts`**: `segSegDist`/`segPtDist`, `clearanceDrc` (track-track по слою / track-pad сквозной / pad-pad, зазор по краям), `buildPour` (растровые полосы 4px, чужие объекты раздуты на clearance, своя цепь заливается), `buildCopperGerber` (+G36/G37 регионы заливки), `buildEdgeGerber`, `buildSilkGerber` (рамки+пин-1), `buildDrill`, `buildPnp` (KiCad-формат, мм от угла платы)
+- **PcbView**: клик по дорожке — выбор, внутренний сегмент тянется перпендикулярно (snap 2px, через `getScreenCTM`), Del/Reroute; Route all — последовательная укладка в модель; clearance-слайдер 0.1–1 мм; pour с выбором цепи; размер платы W×H; маркеры нарушений на сцене + список
+- **Export fab**: F_Cu(+pour)/B_Cu/Edge_Cuts/F_Silkscreen/drill/pos.csv
+- Ограничения: pour без термобарьеров, silk без ref-текста (нет векторного шрифта), min-width не проверяется
+- Тесты: Vitest 80 (+13 `pcb.test.ts`: геометрия/DRC/pour/PnP/Gerber/round-trip), Playwright 10 (+PCB: route→DRC→persist); build чист
+
 ## [2026-06-11] feature | Web — фаза 11: SPICE 2.0 — нелинейные элементы ✅
 
 - **Решатель** (`src/spice.ts`): Ньютон-Рафсон поверх MNA — общий `nrSolve` (демпфинг ±0.5 В точки линеаризации, V-источники держатся строками-ограничениями, до 200 итераций), генерический стамп `I − J·x` по терминалам
