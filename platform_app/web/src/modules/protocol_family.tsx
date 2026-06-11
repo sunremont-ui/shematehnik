@@ -2,6 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
+import { packet, type PacketField as Field } from "../design.ts";
+import { genPacketStruct } from "../codegen.ts";
+import { downloadText } from "../util.ts";
+import { useSerial, serialOpen, serialClose, serialWrite, onSerialData, formatBytes } from "../serial.ts";
 
 // ============================================================
 // Sequence Diagram
@@ -17,14 +21,40 @@ export function SequenceView() {
     { from: 0, to: 2, label: "draw(26.1°C)" },
   ]);
   const [from, setFrom] = useState(0), [to, setTo] = useState(1), [label, setLabel] = useState("ack");
+  const svgRef = useRef<SVGSVGElement>(null);
   const colX = (i: number) => 80 + i * 160;
   const H = 80 + msgs.length * 46 + 30;
 
+  function exportPng() {
+    const svg = svgRef.current; if (!svg) return;
+    // var(--…) не разрешаются в standalone-SVG → инжектим вычисленные значения
+    const cs = getComputedStyle(document.documentElement);
+    const vars = ["--base", "--raised", "--accent-soft", "--text", "--muted", "--border"];
+    const style = `<style>svg{${vars.map((v) => `${v}:${cs.getPropertyValue(v).trim()}`).join(";")}}</style>`;
+    const xml = new XMLSerializer().serializeToString(svg).replace(/(<svg[^>]*>)/, `$1${style}`);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 520 * 2; canvas.height = H * 2;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#0d1117"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = "sequence.png"; a.click();
+        URL.revokeObjectURL(url);
+        ucp.setStatus("Exported sequence.png");
+      }, "image/png");
+    };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+  }
+
   return (
     <div>
-      <PanelHead mod={mod} right={<button className="btn primary" onClick={() => ucp.setStatus("Sequence exported (PNG)")}>Export PNG</button>} />
+      <PanelHead mod={mod} right={<button className="btn primary" onClick={exportPng}>Export PNG</button>} />
       <div className="card" style={{ padding: 0, marginBottom: 12 }}>
-        <svg width="100%" height={H} viewBox={`0 0 520 ${H}`} style={{ background: "var(--base)", display: "block" }}>
+        <svg ref={svgRef} width="100%" height={H} viewBox={`0 0 520 ${H}`} style={{ background: "var(--base)", display: "block" }}>
           {actors.map((a, i) => <g key={a}>
             <rect x={colX(i) - 40} y={16} width={80} height={28} rx={4} fill="var(--raised)" stroke="var(--accent-soft)" />
             <text x={colX(i)} y={34} textAnchor="middle" fill="var(--text)" fontFamily="monospace" fontSize="12">{a}</text>
@@ -52,18 +82,14 @@ export function SequenceView() {
 }
 
 // ============================================================
-// Packet Editor
+// Packet Editor — общий стор пакета (расшарен с Protocol Code Gen)
 // ============================================================
-interface Field { id: number; name: string; bytes: number; value: number; }
 export function PacketView() {
+  const ucp = useUcp();
   const mod = MODULE_INDEX["packet"];
-  const [fields, setFields] = useState<Field[]>([
-    { id: 1, name: "header", bytes: 1, value: 0xAA },
-    { id: 2, name: "cmd", bytes: 1, value: 0x03 },
-    { id: 3, name: "length", bytes: 2, value: 0x0004 },
-    { id: 4, name: "crc", bytes: 2, value: 0x1A3F },
-  ]);
-  const nid = useRef(5);
+  const fields = packet.use();
+  const setFields = (u: Field[] | ((f: Field[]) => Field[])) => packet.update(typeof u === "function" ? (u as (f: Field[]) => Field[]) : () => u);
+  const nid = useRef(Math.max(0, ...fields.map((f) => f.id)) + 1);
   const total = fields.reduce((s, f) => s + f.bytes, 0);
   const hex = fields.flatMap((f) => {
     const bytes: string[] = [];
@@ -72,7 +98,10 @@ export function PacketView() {
   });
   return (
     <div>
-      <PanelHead mod={mod} right={<span className="chip"><span className="dot ok" />{total} bytes</span>} />
+      <PanelHead mod={mod} right={<>
+        <span className="chip"><span className="dot ok" />{total} bytes</span>
+        <button className="btn primary" onClick={() => { downloadText("frame.h", genPacketStruct(fields), "text/x-c"); ucp.setStatus("Exported frame.h (#pragma pack struct)"); }}>Export C struct</button>
+      </>} />
       <div className="grid cols2">
         <div className="card">
           <table className="tbl">
@@ -103,41 +132,92 @@ export function PacketView() {
 }
 
 // ============================================================
-// UART Monitor — симуляция потока
+// UART Monitor — реальный порт через Web Serial (Chrome/Edge) +
+// симуляция как явный режим-фолбэк.
 // ============================================================
+const BAUDS = [9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600];
+
 export function UartView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["uart"];
-  const [open, setOpen] = useState(false);
+  const serial = useSerial();
+  const [baud, setBaud] = useState(115200);
+  const [sim, setSim] = useState(false);
   const [mode, setMode] = useState<"hex" | "ascii">("hex");
   const [lines, setLines] = useState<string[]>([]);
+  const [tx, setTx] = useState("");
+  const [crlf, setCrlf] = useState(true);
   const timer = useRef<number | null>(null);
 
+  const append = (dir: "RX" | "TX", bytes: ArrayLike<number>, fmt: "hex" | "ascii") => {
+    const ts = new Date().toLocaleTimeString();
+    setLines((l) => [...l.slice(-400), `[${ts}] ${dir}  ${formatBytes(bytes, fmt)}`]);
+  };
+
+  // Реальный RX: пересоздаём подписку при смене формата (замыкание на mode).
+  useEffect(() => onSerialData((chunk) => append("RX", chunk, mode)), [mode]);
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
 
-  function toggle() {
-    if (open) { if (timer.current) clearInterval(timer.current); setOpen(false); ucp.setStatus("Port closed"); return; }
-    setOpen(true); ucp.setStatus("COM3 @ 115200 opened");
+  async function connect() {
+    try { await serialOpen(baud); ucp.setStatus(`Serial open @ ${baud}`); }
+    catch (e) { ucp.setStatus(`Serial: ${e instanceof Error ? e.message : e}`); }
+  }
+  async function disconnect() { await serialClose(); ucp.setStatus("Port closed"); }
+
+  function toggleSim() {
+    if (sim) { if (timer.current) clearInterval(timer.current); setSim(false); ucp.setStatus("Симуляция остановлена"); return; }
+    setSim(true); ucp.setStatus("Симуляция RX-потока");
     timer.current = window.setInterval(() => {
       const bytes = Array.from({ length: 6 }, () => Math.floor(Math.random() * 256));
-      const ts = new Date().toLocaleTimeString();
-      const body = mode === "hex" ? bytes.map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" ")
-        : bytes.map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : ".")).join("");
-      setLines((l) => [...l.slice(-200), `[${ts}] RX  ${body}`]);
+      append("RX", bytes, mode);
     }, 600);
   }
+
+  async function send() {
+    if (!tx) return;
+    const bytes = new TextEncoder().encode(tx + (crlf ? "\r\n" : ""));
+    if (serial.status === "open") {
+      try { await serialWrite(bytes); } catch (e) { ucp.setStatus(`TX: ${e instanceof Error ? e.message : e}`); return; }
+    }
+    append("TX", bytes, mode);
+    setTx("");
+  }
+
+  const portChip = !serial.supported
+    ? <span className="chip" title="нужен Chrome/Edge"><span className="dot" />Web Serial недоступен</span>
+    : serial.status === "open"
+      ? <span className="chip"><span className="dot ok" />{serial.info} @ {serial.baud}</span>
+      : serial.status === "error"
+        ? <span className="chip" title={serial.info}><span className="dot warn" />ошибка порта</span>
+        : <span className="chip"><span className="dot" />порт закрыт</span>;
 
   return (
     <div>
       <PanelHead mod={mod} right={
         <>
+          {sim && <span className="chip"><span className="dot warn" />симуляция</span>}
+          {portChip}
+          <select value={baud} onChange={(e) => setBaud(+e.target.value)} disabled={serial.status === "open"}>
+            {BAUDS.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
           <select value={mode} onChange={(e) => setMode(e.target.value as "hex" | "ascii")}><option value="hex">HEX</option><option value="ascii">ASCII</option></select>
           <button className="btn" onClick={() => setLines([])}>Clear</button>
-          <button className={`btn${open ? "" : " primary"}`} onClick={toggle}>{open ? "Disconnect" : "Connect"}</button>
+          <button className="btn" onClick={toggleSim}>{sim ? "Stop sim" : "Simulate"}</button>
+          {serial.status === "open"
+            ? <button className="btn" onClick={disconnect}>Disconnect</button>
+            : <button className="btn primary" disabled={!serial.supported} onClick={connect}>Connect</button>}
         </>
       } />
       <div className="card" style={{ padding: 0 }}>
-        <pre className="code" style={{ border: "none", height: 360, margin: 0 }}>{lines.length ? lines.join("\n") : "— нет данных, нажмите Connect —"}</pre>
+        <pre className="code" style={{ border: "none", height: 330, margin: 0 }}>{lines.length ? lines.join("\n") : "— нет данных: Connect (реальный порт) или Simulate —"}</pre>
+      </div>
+      <div className="card toolbar" style={{ marginTop: 12 }}>
+        <input style={{ flex: 1 }} value={tx} placeholder="send…" onChange={(e) => setTx(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") void send(); }} />
+        <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <input type="checkbox" checked={crlf} onChange={(e) => setCrlf(e.target.checked)} />\r\n
+        </label>
+        <button className="btn primary" onClick={() => void send()} disabled={serial.status !== "open" && !sim}>Send</button>
       </div>
     </div>
   );

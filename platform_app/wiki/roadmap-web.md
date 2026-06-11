@@ -62,9 +62,9 @@ Programs/Analyzer; SPICE линейный; PCB-DRC без зазоров. При
 Превращает мок-модули в реальные инструменты для STM32/ESP32 (Chrome/Edge,
 `navigator.serial`). Скиллы: `/ucp-web-impl-serial`, `/ucp-web-impl-ota`.
 
-1. [ ] **Serial-слой** `src/serial.ts` — open/close/read/write, feature-detect, общий порт между модулями
-2. [ ] **UART Monitor реальный** — подключение к порту, hex/ascii, TX; симуляция остаётся фолбэком
-3. [ ] **PID Tuner live** — телеметрия с реального устройства (сушилка/паяльник) на график
+1. [x] **Serial-слой** `src/serial.ts` — open/close/read/write, feature-detect, общий порт между модулями
+2. [x] **UART Monitor реальный** — подключение к порту, hex/ascii, TX; симуляция остаётся фолбэком
+3. [x] **PID Tuner live** — телеметрия с реального устройства (сушилка/паяльник) на график
 4. [ ] **OTA Flash через esptool-js** — реальная прошивка ESP32 из браузера
 
 ## Фаза 11 — SPICE 2.0: нелинейные элементы 📈

@@ -4,6 +4,15 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-11] feature | Web — фаза 10.1–10.3: Web Serial (UART Monitor + PID live)
+
+- **`src/serial.ts`** — общий слой Web Serial: один порт на приложение, стор `useSerial()` (supported/status/info/baud), `serialOpen/serialClose/serialWrite/onSerialData` (несколько подписчиков), read-loop по chromium-паттерну (восстановимые ошибки → новый reader; отключение устройства → closed)
+- Чистые помощники: `LineBuffer` (сборка строк из чанков, рвёт CRLF/LF/CR и UTF-8 посреди символа), `parseTelemetry` («T:26.1 S:60 O:128» — формат debug-печати прошивок), `formatBytes`
+- **UART Monitor** — реальный порт (Connect, baud 9600…921600, hex/ascii, TX-строка с \r\n) + симуляция как явный режим (кнопка Simulate, чип «симуляция»)
+- **PID Tuner** — переключатель Sim|Live: live читает телеметрию с устройства (график T + SP из потока), отправка уставки `S=<v>\n`; sim-режим не тронут
+- Тесты: Vitest 59 (`serial.test.ts` — 9: LineBuffer/parseTelemetry/formatBytes), Playwright 8 (+UART sim-фолбэк, +PID Sim/Live); build чист (779 КБ)
+- Ручная проверка с железом (STM32/ESP32 по USB-UART) — за пользователем: Chrome → Connect → выбрать порт
+
 ## [2026-06-11] plan | Web Frontend — roadmap цикл 2 (фазы 10–17) + скиллы
 
 - Исследование границы «реальное/мок»: мок остались UART Monitor, OTA, AI, Programs, Analyzer, Firmware/Agent; SPICE только линейный (R/C/L); PCB-DRC без зазоров
