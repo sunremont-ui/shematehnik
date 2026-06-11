@@ -82,20 +82,25 @@ export function deserialize(json: string): UcpProject {
   };
 }
 
-// Список выводов компонента по типу. U — 6 выводов (3+3), остальные — 2.
+// Список выводов компонента по типу. U — 6 выводов (3+3),
+// Q — 3 (1=База/Затвор, 2=Коллектор/Сток, 3=Эмиттер/Исток), остальные — 2.
 export function pinsOf(kind: string): string[] {
   if (kind === "U") return ["1", "2", "3", "4", "5", "6"];
+  if (kind === "Q") return ["1", "2", "3"];
   return ["1", "2"];
 }
 
 // Смещение вывода относительно центра компонента (общая геометрия для
-// Schematic и PCB). 2-pin: лево/право. U: 3 слева (1-3), 3 справа (4-6).
+// Schematic и PCB). 2-pin: лево/право. Q: 1 слева, 2/3 справа сверху/снизу.
+// U: 3 слева (1-3), 3 справа (4-6).
 // rot — поворот символа (градусы), вращает смещение вокруг центра.
 export function pinOffset(kind: string, pin: string, rot = 0): { dx: number; dy: number } {
   const pins = pinsOf(kind);
   const base = pins.length === 2
     ? { dx: pin === "1" ? -24 : 24, dy: 0 }
-    : { dx: (Math.max(0, pins.indexOf(pin)) < 3 ? -1 : 1) * 28, dy: (Math.max(0, pins.indexOf(pin)) % 3 - 1) * 18 };
+    : pins.length === 3
+      ? (pin === "1" ? { dx: -24, dy: 0 } : { dx: 24, dy: pin === "2" ? -14 : 14 })
+      : { dx: (Math.max(0, pins.indexOf(pin)) < 3 ? -1 : 1) * 28, dy: (Math.max(0, pins.indexOf(pin)) % 3 - 1) * 18 };
   if (!rot) return base;
   const r = rot * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
   return { dx: base.dx * c - base.dy * s, dy: base.dx * s + base.dy * c };

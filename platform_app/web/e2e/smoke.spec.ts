@@ -40,13 +40,13 @@ test.describe("UCP web smoke", () => {
     expect(errors, errors.join("\n")).toEqual([]);
   });
 
-  test("SPICE: DC / TRAN / AC analyses run on real netlist", async ({ page }) => {
+  test("SPICE: DC / SWEEP / TRAN / AC analyses run on real netlist", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto("/");
     await openModule(page, "SPICE");
     await expect(page.locator(".chip", { hasText: /R\/C\/L/ })).toBeVisible();
-    for (const m of ["DC", "TRAN", "AC"]) {
+    for (const m of ["DC", "SWEEP", "TRAN", "AC"]) {
       await page.getByRole("button", { name: m, exact: true }).click();
       await expect(page.locator("canvas")).toBeVisible();
     }

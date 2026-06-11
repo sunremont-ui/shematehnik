@@ -4,6 +4,15 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-11] feature | Web — фаза 11: SPICE 2.0 — нелинейные элементы ✅
+
+- **Решатель** (`src/spice.ts`): Ньютон-Рафсон поверх MNA — общий `nrSolve` (демпфинг ±0.5 В точки линеаризации, V-источники держатся строками-ограничениями, до 200 итераций), генерический стамп `I − J·x` по терминалам
+- **Приборы**: диод Шокли с продолжением экспоненты (LED: n=2, Is=1e-18), БЮТ Эберс-Молл транспортный (βF=100, βR=1, NPN/PNP через pol), MOSFET level 1 (K=0.1, Vth=2, симметрия канала при Vds<0); GMIN=1e-12
+- **Топология**: `pinsOf("Q")` → 3 вывода (1=Б/З, 2=К/С, 3=Э/И), `pinOffset` — 3-пиновая геометрия; `buildElements` распознаёт D/Q/M и полярность из value (LED, 2907/PNP, IRF9/PMOS, 7000/MOS…)
+- **Анализы**: DC и TRAN через NR (тёплый старт по шагам); AC линеаризует D/Q/M в DC-рабочей точке (bias); новый **SWEEP** (`dcSweep`) — V(probe) от Vsrc; доп. источник **V2** (aux) во всех анализах, по AC закорочен
+- **SpiceView**: режим SWEEP, панель V2 (узел+напряжение), два перетаскиваемых курсора A/B с readout Δ, экспорт CSV (tran/ac/sweep/dc), .cir с моделями D/Q/M, чип «nonlinear»
+- Тесты: Vitest 67 (+8: диод прямое/обратное, NPN β, PNP, NMOS насыщение, sweep-монотонность, выпрямитель, AC rd=VT/Id), Playwright 9 (SPICE: +SWEEP); build чист
+
 ## [2026-06-11] feature | Web — фаза 10.4: OTA Flash через esptool-js — фаза 10 закрыта ✅
 
 - `OtaView.tsx`: реальная прошивка ESP32 — `esptool-js@0.6` лениво импортируется по клику Flash (отдельный чанк ~100 КБ, основной бандл не вырос); `requestPort` → `Transport` → `ESPLoader.main()` (имя чипа в чип-бейдж) → `writeFlash` (fileArray, flashMode/Freq/Size "keep", compress, reportProgress → прогресс-бар) → `after("hard_reset")`

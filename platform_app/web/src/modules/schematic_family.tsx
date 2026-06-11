@@ -4,7 +4,7 @@ import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
 import { useCoreBackend } from "../core/ucpCore.ts";
 import { computeNets, exportNetlist, exportBom } from "../project.ts";
-import { buildNodes, buildElements, nodeLabel, transient, acSweep, dcSolve, type Elem } from "../spice.ts";
+import { buildNodes, buildElements, nodeLabel, transient, acSweep, dcSolve, dcSweep, hasNonlinear, type Elem, type VSrc } from "../spice.ts";
 import { downloadText } from "../util.ts";
 
 function EngineBadge({ backend }: { backend: string }) {
@@ -160,10 +160,12 @@ export function NetlistView() {
 
 // ============================================================
 // SPICE — настоящий узловой анализатор по топологии схемы.
-// DC / Transient / AC решаются MNA-движком (src/spice.ts) поверх реальных
-// узлов проекта; источник возбуждения задаётся в панели (как .tran/.ac).
+// DC / Sweep / Transient / AC решаются MNA-движком (src/spice.ts) поверх
+// реальных узлов проекта; нелинейные D/Q/M считаются Ньютоном-Рафсоном.
+// Источник возбуждения задаётся в панели (как .op/.dc/.tran/.ac);
+// дополнительный источник V2 — питание транзисторных схем.
 // ============================================================
-type Mode = "dc" | "tran" | "ac";
+type Mode = "dc" | "sweep" | "tran" | "ac";
 
 export function SpiceView() {
   const ucp = useUcp();
@@ -177,7 +179,7 @@ export function SpiceView() {
     const elems = buildElements(ucp.project, nodes);
     // степень узла = число выводов элементов, касающихся узла
     const deg = new Array(nodes.groups.length).fill(0);
-    for (const e of elems) { deg[e.a]++; deg[e.b]++; }
+    for (const e of elems) { deg[e.a]++; deg[e.b]++; if (e.c != null) deg[e.c]++; }
     const touched = nodes.groups.filter((g) => deg[g.id] > 0).map((g) => g.id);
     return { nodes, elems, deg, touched };
   }, [ucp.project]);
@@ -202,6 +204,16 @@ export function SpiceView() {
   const [tEnd, setTEnd] = useState(5);   // в мс
   // AC-свип
   const [f1, setF1] = useState(1), [f2, setF2] = useState(100000);
+  // DC-развёртка
+  const [swTo, setSwTo] = useState(5);
+  // дополнительный источник V2 (питание)
+  const [v2on, setV2on] = useState(false);
+  const [v2node, setV2node] = useState(0);
+  const [v2val, setV2val] = useState(5);
+  // курсоры графика (доли ширины)
+  const [curA, setCurA] = useState(0.25);
+  const [curB, setCurB] = useState(0.75);
+  const drag = useRef<"a" | "b" | null>(null);
 
   // переинициализация портов при смене топологии
   useEffect(() => { setInput(def.input); setGround(def.ground); setProbe(def.probe); }, [def.input, def.ground, def.probe]);
@@ -210,23 +222,49 @@ export function SpiceView() {
   const nodeOpts = nodes.groups.map((g) => opt(g.id));
 
   const ready = elems.length > 0 && input !== ground;
+  const nl = hasNonlinear(elems);
+  const aux = useMemo<VSrc[]>(() => (v2on && v2node !== ground ? [{ p: v2node, v: v2val }] : []), [v2on, v2node, v2val, ground]);
 
   // --- вычисления ---
   const dc = useMemo(() => ready && mode === "dc"
-    ? dcSolve({ numNodes: nodes.groups.length, ground, input, vsrc: amp, elems })
-    : null, [ready, mode, nodes.groups.length, ground, input, amp, elems]);
+    ? dcSolve({ numNodes: nodes.groups.length, ground, input, vsrc: amp, aux, elems })
+    : null, [ready, mode, nodes.groups.length, ground, input, amp, aux, elems]);
+
+  const sweep = useMemo(() => ready && mode === "sweep"
+    ? dcSweep({ numNodes: nodes.groups.length, ground, input, probe, aux, elems, from: 0, to: swTo, steps: 120 })
+    : null, [ready, mode, nodes.groups.length, ground, input, probe, aux, elems, swTo]);
 
   const tran = useMemo(() => {
     if (!ready || mode !== "tran") return null;
     const tE = tEnd / 1000;
     const stimulus = stim === "step" ? () => amp : (t: number) => amp * Math.sin(2 * Math.PI * sfreq * t);
-    return transient({ numNodes: nodes.groups.length, ground, input, stimulus, elems, tEnd: tE, steps: 600 });
-  }, [ready, mode, tEnd, stim, amp, sfreq, ground, input, elems, nodes.groups.length]);
+    return transient({ numNodes: nodes.groups.length, ground, input, stimulus, aux, elems, tEnd: tE, steps: 600 });
+  }, [ready, mode, tEnd, stim, amp, sfreq, ground, input, aux, elems, nodes.groups.length]);
 
   const ac = useMemo(() => {
     if (!ready || mode !== "ac") return null;
-    return acSweep({ numNodes: nodes.groups.length, ground, input, probe, elems, fStart: f1, fStop: f2, points: 200 });
-  }, [ready, mode, f1, f2, ground, input, probe, elems, nodes.groups.length]);
+    // нелинейные приборы линеаризуются в DC-рабочей точке (bias = Vsrc + V2)
+    const bias = nl ? dcSolve({ numNodes: nodes.groups.length, ground, input, vsrc: amp, aux, elems }) : undefined;
+    return acSweep({ numNodes: nodes.groups.length, ground, input, probe, aux, elems, bias, fStart: f1, fStop: f2, points: 200 });
+  }, [ready, mode, f1, f2, ground, input, probe, amp, aux, nl, elems, nodes.groups.length]);
+
+  // Значение под курсором (x/y в единицах активного анализа).
+  const cursorAt = (fr: number): { xv: number; yv: number; xu: string; yu: string } | null => {
+    if (mode === "tran" && tran && tran.t.length > 1) {
+      const i = Math.round(fr * (tran.t.length - 1));
+      return { xv: tran.t[i] * 1000, yv: tran.v[probe][i], xu: "мс", yu: "В" };
+    }
+    if (mode === "ac" && ac && ac.f.length > 1) {
+      const i = Math.round(fr * (ac.f.length - 1));
+      return { xv: ac.f[i], yv: ac.magDb[i], xu: "Гц", yu: "дБ" };
+    }
+    if (mode === "sweep" && sweep && sweep.x.length > 1) {
+      const i = Math.round(fr * (sweep.x.length - 1));
+      return { xv: sweep.x[i], yv: sweep.v[i], xu: "В", yu: "В" };
+    }
+    return null;
+  };
+  const cA = cursorAt(curA), cB = cursorAt(curB);
 
   // --- отрисовка ---
   useEffect(() => {
@@ -248,6 +286,12 @@ export function SpiceView() {
         for (let i = 0; i < s.length; i++) { const x = (i / (s.length - 1)) * W; i ? ctx.lineTo(x, ty(s[i])) : ctx.moveTo(x, ty(s[i])); }
         ctx.stroke();
       }
+    } else if (mode === "sweep" && sweep) {
+      const lo = Math.min(0, ...sweep.v), hi = Math.max(1e-6, ...sweep.v);
+      const sy = (val: number) => H * 0.08 + (1 - (val - lo) / (hi - lo)) * H * 0.84;
+      ctx.strokeStyle = col("--accent-soft"); ctx.lineWidth = 2; ctx.beginPath();
+      sweep.v.forEach((val, i) => { const x = (i / (sweep.v.length - 1)) * W; i ? ctx.lineTo(x, sy(val)) : ctx.moveTo(x, sy(val)); });
+      ctx.stroke();
     } else if (mode === "ac" && ac) {
       const lo = Math.min(...ac.magDb), hi = Math.max(...ac.magDb, 0);
       const my = (db: number) => H * 0.1 + (1 - (db - lo) / Math.max(1e-6, hi - lo)) * H * 0.55;
@@ -260,30 +304,76 @@ export function SpiceView() {
       ctx.stroke();
     } else {
       ctx.fillStyle = col("--muted"); ctx.font = "13px monospace";
-      ctx.fillText(ready ? "DC operating point — см. таблицу" : "Нет R/C/L в схеме или input = ground", 16, H / 2);
+      ctx.fillText(ready ? "DC operating point — см. таблицу" : "Нет элементов в схеме или input = ground", 16, H / 2);
     }
-  }, [mode, tran, ac, ready, input, probe, nodes.groups]);
+
+    // курсоры (для всех режимов с осью X)
+    if (mode !== "dc" && ready) {
+      ([[curA, "A"], [curB, "B"]] as const).forEach(([fr, tag]) => {
+        const x = fr * W;
+        ctx.setLineDash([4, 4]); ctx.strokeStyle = col("--accent"); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = col("--accent"); ctx.font = "10px monospace";
+        ctx.fillText(tag, x + 4, 12);
+      });
+    }
+  }, [mode, tran, ac, sweep, ready, input, probe, nodes.groups, curA, curB]);
+
+  // Перетаскивание курсоров мышью/пальцем.
+  const frOf = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+  };
 
   function exportNet() {
+    const dev = (e: Elem) =>
+      e.kind === "D" ? `${e.ref} N${e.a} N${e.b} DMOD` :
+      e.kind === "Q" ? `${e.ref} N${e.a} N${e.c} N${e.b} ${e.pol === -1 ? "QPNP" : "QNPN"}` :
+      e.kind === "M" ? `${e.ref} N${e.a} N${e.c} N${e.b} N${e.b} ${e.pol === -1 ? "MP" : "MN"}` :
+      `${e.ref} N${e.a} N${e.b} ${e.value}`;
+    const models: string[] = [];
+    if (elems.some((e) => e.kind === "D")) models.push(".model DMOD D(IS=1e-14)");
+    if (elems.some((e) => e.kind === "Q" && e.pol !== -1)) models.push(".model QNPN NPN(BF=100)");
+    if (elems.some((e) => e.kind === "Q" && e.pol === -1)) models.push(".model QPNP PNP(BF=100)");
+    if (elems.some((e) => e.kind === "M" && e.pol !== -1)) models.push(".model MN NMOS(VTO=2 KP=0.1)");
+    if (elems.some((e) => e.kind === "M" && e.pol === -1)) models.push(".model MP PMOS(VTO=-2 KP=0.1)");
     const lines = ["* UCP SPICE netlist (auto)",
-      ...elems.map((e: Elem) => `${e.ref} N${e.a} N${e.b} ${e.value}`),
+      ...elems.map(dev),
       `V1 N${input} N${ground} ${stim === "step" ? `DC ${amp}` : `SIN(0 ${amp} ${sfreq})`}`,
-      mode === "ac" ? `.ac dec 200 ${f1} ${f2}` : mode === "tran" ? `.tran ${(tEnd / 1000 / 600).toExponential(2)} ${(tEnd / 1000)}` : ".op", ".end"];
+      ...aux.map((s, i) => `V${i + 2} N${s.p} N${ground} DC ${s.v}`),
+      ...models,
+      mode === "ac" ? `.ac dec 200 ${f1} ${f2}`
+        : mode === "tran" ? `.tran ${(tEnd / 1000 / 600).toExponential(2)} ${(tEnd / 1000)}`
+        : mode === "sweep" ? `.dc V1 0 ${swTo} ${swTo / 120}`
+        : ".op", ".end"];
     downloadText(`${ucp.projectName}.cir`, lines.join("\n"));
     ucp.setStatus(`Exported ${ucp.projectName}.cir`);
+  }
+
+  function exportCsv() {
+    let rows: string[] = [];
+    if (mode === "tran" && tran) rows = ["t_s,V_source,V_probe", ...tran.t.map((t, i) => `${t},${tran.v[input][i]},${tran.v[probe][i]}`)];
+    else if (mode === "ac" && ac) rows = ["f_Hz,mag_dB,phase_deg", ...ac.f.map((f, i) => `${f},${ac.magDb[i]},${ac.phaseDeg[i]}`)];
+    else if (mode === "sweep" && sweep) rows = ["V_src,V_probe", ...sweep.x.map((x, i) => `${x},${sweep.v[i]}`)];
+    else if (mode === "dc" && dc) rows = ["node,V", ...touched.map((n) => `${nodeLabel(nodes.groups[n])},${dc[n]}`)];
+    if (rows.length < 2) { ucp.setStatus("Нет данных для CSV"); return; }
+    downloadText(`${ucp.projectName}_${mode}.csv`, rows.join("\n"), "text/csv");
+    ucp.setStatus(`Exported ${mode}.csv (${rows.length - 1} строк)`);
   }
 
   return (
     <div>
       <PanelHead mod={mod} right={<>
         <EngineBadge backend={backend} />
-        <span className="chip"><span className="dot ok" />{elems.length} R/C/L</span>
+        <span className="chip"><span className="dot ok" />{elems.length} R/C/L/D/Q</span>
+        {nl && <span className="chip" title="Ньютон-Рафсон"><span className="dot warn" />nonlinear</span>}
+        <button className="btn" onClick={exportCsv}>CSV</button>
         <button className="btn" onClick={exportNet}>Export .cir</button>
       </>} />
-      <p className="panel-sub">Узлы и номиналы — из реальной схемы. Источник возбуждения и анализ задаются ниже (как .op/.tran/.ac).</p>
+      <p className="panel-sub">Узлы и номиналы — из реальной схемы; D/Q/M считаются Ньютоном-Рафсоном. Источник и анализ — ниже (как .op/.dc/.tran/.ac).</p>
       <div className="toolbar">
         <span className="muted">Analysis:</span>
-        {(["dc", "tran", "ac"] as const).map((m) => (
+        {(["dc", "sweep", "tran", "ac"] as const).map((m) => (
           <button key={m} className={`btn${mode === m ? " primary" : ""}`} onClick={() => setMode(m)}>{m.toUpperCase()}</button>
         ))}
       </div>
@@ -303,8 +393,11 @@ export function SpiceView() {
             <select value={probe} onChange={(e) => setProbe(+e.target.value)} style={{ flex: 1 }}>{nodeOpts}</select>
           </label>
 
-          {mode === "dc" && (
+          {(mode === "dc" || mode === "ac") && (
             <Slider l="Vsrc, В" v={amp} set={setAmp} min={0} max={12} step={0.5} />
+          )}
+          {mode === "sweep" && (
+            <Slider l="V→, В" v={swTo} set={setSwTo} min={1} max={12} step={0.5} />
           )}
           {mode === "tran" && <>
             <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>STIMULUS</div>
@@ -320,14 +413,33 @@ export function SpiceView() {
             <Slider l="f₁, Гц" v={f1} set={setF1} min={1} max={1000} step={1} />
             <Slider l="f₂, Гц" v={f2} set={setF2} min={1000} max={1000000} step={1000} />
           </>}
+
+          <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>V2 — ПИТАНИЕ</div>
+          <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={v2on} onChange={(e) => setV2on(e.target.checked)} />
+            <select value={v2node} disabled={!v2on} onChange={(e) => setV2node(+e.target.value)} style={{ flex: 1 }}>{nodeOpts}</select>
+          </label>
+          {v2on && <Slider l="V2, В" v={v2val} set={setV2val} min={-12} max={12} step={0.5} />}
         </div>
         <div className="card" style={{ padding: 12 }}>
-          <canvas ref={cv} width={640} height={320} style={{ width: "100%", height: "auto" }} />
+          <canvas ref={cv} width={640} height={320}
+            style={{ width: "100%", height: "auto", touchAction: "none", cursor: mode === "dc" ? "default" : "col-resize" }}
+            onPointerDown={(e) => {
+              if (mode === "dc") return;
+              const fr = frOf(e);
+              drag.current = Math.abs(fr - curA) <= Math.abs(fr - curB) ? "a" : "b";
+              (drag.current === "a" ? setCurA : setCurB)(fr);
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => { if (drag.current) (drag.current === "a" ? setCurA : setCurB)(frOf(e)); }}
+            onPointerUp={() => { drag.current = null; }}
+          />
           <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
             {mode === "tran" && <>
               <span className="chip"><span className="dot" style={{ background: "var(--muted)" }} />V(source)</span>
               <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />V(probe)</span>
             </>}
+            {mode === "sweep" && <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />V(probe) от Vsrc</span>}
             {mode === "ac" && <>
               <span className="chip"><span className="dot" style={{ background: "var(--accent-soft)" }} />|H| дБ</span>
               <span className="chip"><span className="dot" style={{ background: "var(--muted)" }} />phase °</span>
@@ -341,6 +453,13 @@ export function SpiceView() {
               const i3 = ac.magDb.findIndex((d) => d <= ac.magDb[0] - 3);
               return <span className="muted" style={{ fontSize: 12 }}>{i3 > 0 ? `f(-3дБ) ≈ ${ac.f[i3].toFixed(1)} Гц` : "—"}</span>;
             })()}
+            {cA && cB && (
+              <span className="muted" style={{ fontSize: 12, fontFamily: "monospace" }}>
+                A: {cA.xv.toFixed(2)}{cA.xu} · {cA.yv.toFixed(3)}{cA.yu}
+                {"  "}B: {cB.xv.toFixed(2)}{cB.xu} · {cB.yv.toFixed(3)}{cB.yu}
+                {"  "}Δ: {(cB.xv - cA.xv).toFixed(2)}{cA.xu} · {(cB.yv - cA.yv).toFixed(3)}{cA.yu}
+              </span>
+            )}
           </div>
         </div>
       </div>
