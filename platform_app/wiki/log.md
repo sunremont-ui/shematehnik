@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-13] lab | Web -- LVGL per-child flex grow
+
+- `platform_app/web/src/design.ts`: added optional `UiW.flexGrow` with `normalizeUiFlexGrow` (kept only as a positive integer `>= 1`).
+- `platform_app/web/src/codegen.ts`: `emitWidget` now emits `lv_obj_set_flex_grow(nm, n)` when `flexGrow` is set; unset/<=0 keeps existing output.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: non-Panel widgets with a parent Panel expose a `Grow` input.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`, `platform_app/web/e2e/smoke.spec.ts`: added grow-emitted / no-grow-absent checks, `.ucp` v2 round-trip of `flexGrow` and a UI Designer -> LVGL Export grow smoke.
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-13-flex-grow.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff and SKILL/command: lab slice and curated docs promoted; binary asset pipeline, nested/responsive layout and LVGL v9 mode remain deferred.
+- Checks: `npm.cmd test` -- 16 files / 148 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (run via `node node_modules/@playwright/test/cli.js`; `npm run` still mangles the script path in this Git Bash shell).
+
+---
+
 ## [2026-06-13] lab | Web -- LVGL Panel flex cross-axis and track alignment
 
 - `platform_app/web/src/design.ts`: added optional `UiLayout.crossAlign` and `UiLayout.trackAlign`, normalized like `align` (only with a valid `layout.kind`).

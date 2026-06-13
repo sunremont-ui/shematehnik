@@ -156,6 +156,12 @@ export function UiDesignerView() {
                   </select>
                 </label>
               )}
+              {selected.type !== "Panel" && selected.parentId !== undefined && (
+                <label className="field">Grow
+                  <input type="number" min={0} value={selected.flexGrow ?? 0}
+                    onChange={(e) => patch(selected.id, { flexGrow: +e.target.value >= 1 ? Math.round(+e.target.value) : undefined })} />
+                </label>
+              )}
               {selected.type === "Panel" && (
                 <>
                   <label className="field">Layout

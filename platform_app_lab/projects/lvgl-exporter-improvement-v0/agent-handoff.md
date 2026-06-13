@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 12 (Panel flex cross-axis + track alignment) implemented and verified; commit it together with this handoff update.
+- Slice 13 (per-child flex grow) implemented and verified; commit it together with this handoff update.
+- Slice 12 (Panel flex cross-axis + track align) committed as `40d7209 feat(web): add LVGL Panel flex cross-axis and track alignment`.
 - Slice 11 (Panel flex main-axis align) committed as `639c422 feat(web): add LVGL Panel flex main-axis alignment`.
 - Slice 10 (project image asset manifest) committed as `eacb611 feat(web): add LVGL project asset manifest`.
 
@@ -16,7 +17,7 @@ Current lab state:
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
-- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report), Panel flex layout + main/cross/track align, and same-screen Panel child parents.
+- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report), Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
 
 ## Current Working Files
 
@@ -49,7 +50,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 12:
+Latest full verification from slice 13:
 
 ```bash
 cd platform_app/web
@@ -62,7 +63,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Full Vitest: 16 files / 147 tests passed.
+- Full Vitest: 16 files / 148 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 
@@ -83,9 +84,9 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Good Next Slice Options
 
-Slice 10 (asset manifest), slice 11 (main-axis align) and slice 12 (cross/track align)
-are done. The full `lv_obj_set_flex_align` is now covered. Pick one small vertical slice,
-write a `slice-13-*.md` plan first, then implement.
+Slices 10-13 are done: asset manifest, full main/cross/track flex align and per-child
+flex grow. Flex layout primitives are now well covered. Pick one small vertical slice,
+write a `slice-14-*.md` plan first, then implement.
 
 1. Binary/file asset pipeline
 
@@ -94,21 +95,22 @@ write a `slice-13-*.md` plan first, then implement.
 - Keep it narrow: one format, deterministic output, no folder/skeleton export yet.
 - Tests: array generation for a tiny fixture image, manifest-to-array linkage.
 
-2. Per-child flex grow
+2. Per-child flex shrink / self-align
 
-- Add a minimal `UiW.flexGrow` for widgets inside a flex `Panel`.
-- Generator emits `lv_obj_set_flex_grow(child, n)` only when set.
-- Keep wrap/auto-reflow and grid out of scope.
-- Tests: no-grow output unchanged and one grow fixture.
+- Add a minimal `UiW.flexShrink` or per-child cross self-alignment.
+- Generator emits the matching LVGL call only when set.
+- Keep wrap/grid out of scope.
+- Tests: no-field output unchanged and one fixture.
 
 3. Minimal LVGL v9 research-only matrix update
 
 - No code changes.
 - Re-check official LVGL current docs and record exact v9 constructor/screen/style/event differences.
-- Produce a candidate `slice-13-v9-mode.md` with acceptance criteria before implementation.
+- Produce a candidate `slice-14-v9-mode.md` with acceptance criteria before implementation.
 
-Recommended next slice if the user asks to continue implementation: option 2 (per-child
-flex grow) as the smallest narrow extension, or option 1 for a real asset pipeline.
+Recommended next slice if the user asks to continue implementation: option 1 (binary
+asset pipeline) -- the flex primitives are now largely complete, so assets are the
+biggest remaining practical gap.
 
 ## Promotion Checklist For The Next Agent
 

@@ -38,7 +38,7 @@ export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export interface UiStyle { bgColor?: string; radius?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
-export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
+export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export interface UiAsset { id: string; src?: string; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
 export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: string; assets?: UiAsset[]; }
@@ -66,6 +66,7 @@ function normalizeUiDesign(raw: unknown): UiW[] | null {
     text: typeof w.text === "string" ? w.text : "",
     ...normalizeUiParent(w.parentId),
     ...normalizeUiAsset(w.assetId),
+    ...normalizeUiFlexGrow(w.flexGrow),
     ...normalizeUiEvent(w.event),
     ...normalizeUiStyle(w.style),
     ...normalizeUiLayout(w.layout),
@@ -95,6 +96,11 @@ function sanitizeUiParents(widgets: UiW[]): UiW[] {
 function normalizeUiAsset(raw: unknown): { assetId?: string } {
   const assetId = typeof raw === "string" ? raw.trim() : "";
   return assetId ? { assetId } : {};
+}
+
+function normalizeUiFlexGrow(raw: unknown): { flexGrow?: number } {
+  const grow = Number(raw);
+  return Number.isFinite(grow) && grow >= 1 ? { flexGrow: Math.round(grow) } : {};
 }
 
 function normalizeUiAssets(raw: unknown): UiAsset[] {

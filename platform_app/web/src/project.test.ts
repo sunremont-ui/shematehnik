@@ -104,7 +104,7 @@ describe("project serialize/deserialize", () => {
               style: { bgColor: "#1f6feb", radius: 8 },
             },
             { id: 2, type: "Panel", x: 8, y: 44, w: 120, h: 48, text: "", layout: { kind: "flex_row", gap: 5, align: "space_between", crossAlign: "center", trackAlign: "end" } },
-            { id: 3, type: "Label", x: 6, y: 6, w: 80, h: 20, text: "Nested", parentId: 2 },
+            { id: 3, type: "Label", x: 6, y: 6, w: 80, h: 20, text: "Nested", parentId: 2, flexGrow: 3 },
           ],
         },
       ],

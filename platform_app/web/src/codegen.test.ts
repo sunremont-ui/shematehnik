@@ -139,6 +139,20 @@ describe("genLvgl", () => {
     expect(out.c).toContain("lv_obj_set_flex_align(ui_Panel_1, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_SPACE_EVENLY);");
   });
 
+  it("emits per-child flex grow only when set", () => {
+    const grown = genLvgl([
+      { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "", layout: { kind: "flex_row" } },
+      { id: 2, type: "Label", x: 0, y: 0, w: 40, h: 20, text: "Hi", parentId: 1, flexGrow: 2 },
+    ], "main");
+    expect(grown.c).toContain("lv_obj_set_flex_grow(ui_Label_2, 2);");
+
+    const plain = genLvgl([
+      { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "", layout: { kind: "flex_row" } },
+      { id: 2, type: "Label", x: 0, y: 0, w: 40, h: 20, text: "Hi", parentId: 1 },
+    ], "main");
+    expect(plain.c).not.toContain("lv_obj_set_flex_grow");
+  });
+
   it("creates child widgets under Panel parents", () => {
     const out = genLvgl([
       { id: 2, type: "Label", x: 8, y: 10, w: 100, h: 24, text: "Child", parentId: 1 },

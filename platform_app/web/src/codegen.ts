@@ -208,6 +208,7 @@ function emitWidget(out: string[], w: UiW, nm: string, parent: string) {
     out.push(`    ${w.type === "Dropdown" ? "lv_dropdown_set_options" : "lv_roller_set_options"}(${nm}, "${escC(w.text || "A\\nB\\nC")}"${w.type === "Roller" ? ", LV_ROLLER_MODE_NORMAL" : ""});`);
   emitLayout(out, w, nm);
   emitStyleAttach(out, w, nm);
+  if (Number.isFinite(w.flexGrow) && (w.flexGrow ?? 0) >= 1) out.push(`    lv_obj_set_flex_grow(${nm}, ${Math.round(w.flexGrow!)});`);
   const ev = lvEventFor(w);
   if (ev) out.push(`    lv_obj_add_event_cb(${nm}, ${ev.fn}, ${ev.code}, NULL);`);
 }

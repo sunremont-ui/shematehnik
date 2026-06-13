@@ -68,12 +68,13 @@ Current status:
 - Minimal project asset manifest: `UiProjectDesign.assets` (`{ id, src? }`) declares known images. `genLvglProject()` declares the union of manifest and used widget assets once each, comments declared sources as `// src: <path>`, and reports widget assets used but absent from a non-empty manifest as explicit TODOs. Empty/absent manifest keeps the slice-06 declaration behavior unchanged. Binary/file generation stays out of scope.
 - Minimal Panel layout model: `Panel` widgets can store `layout.kind` (`flex_row` or `flex_column`), `layout.gap` and three flex placements `layout.align`/`crossAlign`/`trackAlign` (`start`/`center`/`end`/`space_between`/`space_around`/`space_evenly`); generated LVGL v8 C emits `lv_obj_set_layout(..., LV_LAYOUT_FLEX)`, `lv_obj_set_flex_flow(...)`, `lv_obj_set_flex_align(..., <main>, <cross>, <track>)` when any placement is set (unset args default to `LV_FLEX_ALIGN_START`) and gap pad setters.
 - Minimal Panel child-parent model: non-Panel widgets can store `parentId` pointing to a same-screen `Panel`; generated LVGL v8 C creates children with the panel object as parent and emits panels before their children.
+- Minimal per-child flex grow: a non-Panel widget can store `flexGrow` (positive integer); generated LVGL v8 C emits `lv_obj_set_flex_grow(child, n)` only when set. LVGL ignores it unless the parent is a flex container.
 
 Known improvement area for the next laboratory pass:
 
 - richer style/theme tokens, fonts and a full image/asset pipeline (file import, binary C arrays, asset folder export) beyond the current id/src manifest;
 - richer event/action workflows beyond direct screen loads, including user data, callback bodies and action chains;
-- nested layout containers, per-child flex grow/shrink, auto child reflow, flex/grid-like positioning and responsive display profiles;
+- nested layout containers, per-child flex shrink, auto child reflow, flex/grid-like positioning and responsive display profiles;
 - LVGL v8/v9 compatibility matrix;
 - project-level export such as CMake/ESP-IDF/PlatformIO skeletons;
 - additional golden-output fixtures for generated `ui.c/ui.h` as the model expands.
