@@ -153,6 +153,7 @@ test.describe("UCP web smoke", () => {
     await page.getByLabel("Layout").selectOption("flex_row");
     await page.getByLabel("Gap").fill("4");
     await page.getByLabel("Align").selectOption("space_between");
+    await page.getByLabel("Cross").selectOption("center");
     await page.getByRole("button", { name: "Label", exact: true }).click();
     await page.getByLabel("Parent panel").selectOption("7");
     await openModule(page, "LVGL Export");
@@ -161,7 +162,7 @@ test.describe("UCP web smoke", () => {
     await expect(page.locator("pre.code")).toContainText("lv_img_set_src");
     await expect(page.locator("pre.code")).toContainText("lv_obj_set_layout");
     await expect(page.locator("pre.code")).toContainText("LV_FLEX_FLOW_ROW");
-    await expect(page.locator("pre.code")).toContainText("lv_obj_set_flex_align(ui_main_Panel_7, LV_FLEX_ALIGN_SPACE_BETWEEN");
+    await expect(page.locator("pre.code")).toContainText("lv_obj_set_flex_align(ui_main_Panel_7, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);");
     await expect(page.locator("pre.code")).toContainText("ui_main_Label_8 = lv_label_create(ui_main_Panel_7)");
     await expect(page.locator("pre.code")).toContainText("lv_scr_load(ui_screen_2)");
     await expect(page.locator(".chip", { hasText: /widgets из UI Designer/ })).toBeVisible();

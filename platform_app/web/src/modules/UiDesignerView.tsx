@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiW as W } from "../design.ts";
+import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayout, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiW as W } from "../design.ts";
 import { genLvglProject } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
@@ -159,22 +159,24 @@ export function UiDesignerView() {
               {selected.type === "Panel" && (
                 <>
                   <label className="field">Layout
-                    <select value={selected.layout?.kind ?? ""} onChange={(e) => setLayout(selected, e.target.value as UiLayoutKind | "")}>
+                    <select value={selected.layout?.kind ?? ""} onChange={(e) => updateLayout(selected, { kind: e.target.value as UiLayoutKind | "" })}>
                       <option value="">None</option>
                       {UI_LAYOUT_KINDS.map((kind) => <option key={kind} value={kind}>{layoutLabel(kind)}</option>)}
                     </select>
                   </label>
                   <label className="field">Gap
                     <input type="number" min={0} value={selected.layout?.gap ?? 0} disabled={!selected.layout}
-                      onChange={(e) => selected.layout && setLayout(selected, selected.layout.kind, +e.target.value)} />
+                      onChange={(e) => updateLayout(selected, { gap: +e.target.value })} />
                   </label>
-                  <label className="field">Align
-                    <select value={selected.layout?.align ?? ""} disabled={!selected.layout}
-                      onChange={(e) => selected.layout && setLayout(selected, selected.layout.kind, selected.layout.gap, (e.target.value || undefined) as UiFlexAlign | undefined)}>
-                      <option value="">Default</option>
-                      {UI_FLEX_ALIGNS.map((align) => <option key={align} value={align}>{flexAlignLabel(align)}</option>)}
-                    </select>
-                  </label>
+                  {(["align", "crossAlign", "trackAlign"] as const).map((field) => (
+                    <label key={field} className="field">{alignFieldLabel(field)}
+                      <select value={selected.layout?.[field] ?? ""} disabled={!selected.layout}
+                        onChange={(e) => updateLayout(selected, { [field]: (e.target.value || undefined) as UiFlexAlign | undefined })}>
+                        <option value="">Default</option>
+                        {UI_FLEX_ALIGNS.map((align) => <option key={align} value={align}>{flexAlignLabel(align)}</option>)}
+                      </select>
+                    </label>
+                  ))}
                 </>
               )}
               <label className="field">Fill
@@ -263,8 +265,18 @@ export function UiDesignerView() {
     const assetId = raw.trim();
     patch(w.id, { assetId: assetId || undefined });
   }
-  function setLayout(w: W, kind: UiLayoutKind | "", gap = w.layout?.gap ?? 0, align = w.layout?.align) {
-    patch(w.id, kind ? { layout: { kind, gap: Math.max(0, Math.round(gap)), ...(align ? { align } : {}) } } : { layout: undefined });
+  function updateLayout(w: W, changes: { kind?: UiLayoutKind | ""; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign }) {
+    const kind = "kind" in changes ? changes.kind : w.layout?.kind;
+    if (!kind) { patch(w.id, { layout: undefined }); return; }
+    const base = w.layout ?? { kind };
+    const next: UiLayout = { ...base, kind };
+    if ("gap" in changes) next.gap = Math.max(0, Math.round(changes.gap ?? 0));
+    for (const field of ["align", "crossAlign", "trackAlign"] as const) {
+      if (!(field in changes)) continue;
+      if (changes[field]) next[field] = changes[field];
+      else delete next[field];
+    }
+    patch(w.id, { layout: next });
   }
   function setParent(w: W, raw: string) {
     const parentId = Number(raw);
@@ -294,6 +306,10 @@ function widgetScreenPos(w: W, widgets: W[]): { x: number; y: number } {
 
 function suggestEventHandler(screenId: string, w: W): string {
   return `on_${screenId}_${w.type}_${w.id}`;
+}
+
+function alignFieldLabel(field: "align" | "crossAlign" | "trackAlign"): string {
+  return field === "align" ? "Align" : field === "crossAlign" ? "Cross" : "Track";
 }
 
 function flexAlignLabel(align: UiFlexAlign): string {

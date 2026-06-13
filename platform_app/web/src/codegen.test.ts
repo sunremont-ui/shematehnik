@@ -125,6 +125,20 @@ describe("genLvgl", () => {
     expect(out.c).toContain("lv_obj_set_flex_align(ui_Panel_1, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);");
   });
 
+  it("fills cross-axis flex align without a main-axis value", () => {
+    const out = genLvgl([
+      { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "", layout: { kind: "flex_row", crossAlign: "center" } },
+    ], "main");
+    expect(out.c).toContain("lv_obj_set_flex_align(ui_Panel_1, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);");
+  });
+
+  it("fills all three flex align arguments", () => {
+    const out = genLvgl([
+      { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "", layout: { kind: "flex_row", align: "center", crossAlign: "end", trackAlign: "space_evenly" } },
+    ], "main");
+    expect(out.c).toContain("lv_obj_set_flex_align(ui_Panel_1, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_SPACE_EVENLY);");
+  });
+
   it("creates child widgets under Panel parents", () => {
     const out = genLvgl([
       { id: 2, type: "Label", x: 8, y: 10, w: 100, h: 24, text: "Child", parentId: 1 },

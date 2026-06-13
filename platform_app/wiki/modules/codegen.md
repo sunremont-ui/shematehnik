@@ -66,14 +66,14 @@ Current status:
 - Minimal style model: widgets can store `style.bgColor` and `style.radius`; generated LVGL v8 C emits `lv_style_t` init, background color/opacity, radius and `lv_obj_add_style(...)`.
 - Minimal image asset placeholder: `Image` widgets can store `assetId`; generated LVGL v8 C emits `LV_IMG_DECLARE(asset)` and `lv_img_set_src(widget, &asset)`, or an explicit TODO when the image source is still missing.
 - Minimal project asset manifest: `UiProjectDesign.assets` (`{ id, src? }`) declares known images. `genLvglProject()` declares the union of manifest and used widget assets once each, comments declared sources as `// src: <path>`, and reports widget assets used but absent from a non-empty manifest as explicit TODOs. Empty/absent manifest keeps the slice-06 declaration behavior unchanged. Binary/file generation stays out of scope.
-- Minimal Panel layout model: `Panel` widgets can store `layout.kind` (`flex_row` or `flex_column`), `layout.gap` and a main-axis `layout.align` (`start`/`center`/`end`/`space_between`/`space_around`/`space_evenly`); generated LVGL v8 C emits `lv_obj_set_layout(..., LV_LAYOUT_FLEX)`, `lv_obj_set_flex_flow(...)`, optional `lv_obj_set_flex_align(..., <main>, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START)` and gap pad setters. Cross-axis/track alignment stay `START`.
+- Minimal Panel layout model: `Panel` widgets can store `layout.kind` (`flex_row` or `flex_column`), `layout.gap` and three flex placements `layout.align`/`crossAlign`/`trackAlign` (`start`/`center`/`end`/`space_between`/`space_around`/`space_evenly`); generated LVGL v8 C emits `lv_obj_set_layout(..., LV_LAYOUT_FLEX)`, `lv_obj_set_flex_flow(...)`, `lv_obj_set_flex_align(..., <main>, <cross>, <track>)` when any placement is set (unset args default to `LV_FLEX_ALIGN_START`) and gap pad setters.
 - Minimal Panel child-parent model: non-Panel widgets can store `parentId` pointing to a same-screen `Panel`; generated LVGL v8 C creates children with the panel object as parent and emits panels before their children.
 
 Known improvement area for the next laboratory pass:
 
 - richer style/theme tokens, fonts and a full image/asset pipeline (file import, binary C arrays, asset folder export) beyond the current id/src manifest;
 - richer event/action workflows beyond direct screen loads, including user data, callback bodies and action chains;
-- cross-axis/track flex alignment, nested layout containers, auto child reflow, flex/grid-like positioning and responsive display profiles;
+- nested layout containers, per-child flex grow/shrink, auto child reflow, flex/grid-like positioning and responsive display profiles;
 - LVGL v8/v9 compatibility matrix;
 - project-level export such as CMake/ESP-IDF/PlatformIO skeletons;
 - additional golden-output fixtures for generated `ui.c/ui.h` as the model expands.

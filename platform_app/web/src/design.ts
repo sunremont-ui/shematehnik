@@ -37,7 +37,7 @@ export type UiFlexAlign = "start" | "center" | "end" | "space_between" | "space_
 export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string; }
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export interface UiStyle { bgColor?: string; radius?: number; }
-export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; }
+export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export interface UiAsset { id: string; src?: string; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
@@ -142,7 +142,12 @@ function normalizeUiLayout(raw: unknown): { layout?: UiLayout } {
   const layout: UiLayout = { kind };
   const gap = Number(raw.gap);
   if (Number.isFinite(gap)) layout.gap = Math.max(0, Math.round(gap));
-  if (typeof raw.align === "string" && (UI_FLEX_ALIGNS as string[]).includes(raw.align)) layout.align = raw.align as UiFlexAlign;
+  const align = (k: unknown): UiFlexAlign | undefined =>
+    typeof k === "string" && (UI_FLEX_ALIGNS as string[]).includes(k) ? k as UiFlexAlign : undefined;
+  const main = align(raw.align), cross = align(raw.crossAlign), track = align(raw.trackAlign);
+  if (main) layout.align = main;
+  if (cross) layout.crossAlign = cross;
+  if (track) layout.trackAlign = track;
   return { layout };
 }
 

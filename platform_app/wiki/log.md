@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-13] lab | Web -- LVGL Panel flex cross-axis and track alignment
+
+- `platform_app/web/src/design.ts`: added optional `UiLayout.crossAlign` and `UiLayout.trackAlign`, normalized like `align` (only with a valid `layout.kind`).
+- `platform_app/web/src/codegen.ts`: `emitLayout` now fills the 2nd/3rd args of `lv_obj_set_flex_align` from cross/track (default `LV_FLEX_ALIGN_START`) and emits the call when any of `align`/`crossAlign`/`trackAlign` is set; main-only output keeps the slice-11 string and no-align keeps slice-07 output.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: replaced positional `setLayout` with an object-merge `updateLayout` helper and added `Align`/`Cross`/`Track` selects for `Panel`.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`, `platform_app/web/e2e/smoke.spec.ts`: added cross-only and all-three align checks, `.ucp` v2 round-trip of cross/track and a UI Designer -> LVGL Export cross-align smoke.
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-12-cross-track-align.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff and SKILL/command: lab slice and curated docs promoted; binary asset pipeline, nested/responsive layout and LVGL v9 mode remain deferred.
+- Checks: `npm.cmd test` -- 16 files / 147 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (run via `node node_modules/@playwright/test/cli.js`; `npm run` still mangles the script path in this Git Bash shell).
+
+---
+
 ## [2026-06-13] lab | Web -- LVGL Panel flex main-axis alignment
 
 - `platform_app/web/src/design.ts`: added `UiFlexAlign`/`UI_FLEX_ALIGNS` and optional `UiLayout.align`, normalized only alongside a valid `layout.kind`.

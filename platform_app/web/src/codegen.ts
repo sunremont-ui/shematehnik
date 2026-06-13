@@ -171,8 +171,11 @@ function emitLayout(out: string[], w: UiW, nm: string) {
   if (!flow) return;
   out.push(`    lv_obj_set_layout(${nm}, LV_LAYOUT_FLEX);`);
   out.push(`    lv_obj_set_flex_flow(${nm}, ${flow});`);
-  const align = w.layout?.align ? LV_FLEX_ALIGN[w.layout.align] : null;
-  if (align) out.push(`    lv_obj_set_flex_align(${nm}, ${align}, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);`);
+  const main = w.layout?.align ? LV_FLEX_ALIGN[w.layout.align] : null;
+  const cross = w.layout?.crossAlign ? LV_FLEX_ALIGN[w.layout.crossAlign] : null;
+  const track = w.layout?.trackAlign ? LV_FLEX_ALIGN[w.layout.trackAlign] : null;
+  const dft = "LV_FLEX_ALIGN_START";
+  if (main || cross || track) out.push(`    lv_obj_set_flex_align(${nm}, ${main ?? dft}, ${cross ?? dft}, ${track ?? dft});`);
   const gap = Number(w.layout?.gap);
   if (Number.isFinite(gap)) {
     const n = Math.max(0, Math.round(gap));
