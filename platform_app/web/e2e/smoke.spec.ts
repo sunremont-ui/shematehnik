@@ -152,12 +152,15 @@ test.describe("UCP web smoke", () => {
     await page.getByRole("button", { name: "Panel", exact: true }).click();
     await page.getByLabel("Layout").selectOption("flex_row");
     await page.getByLabel("Gap").fill("4");
+    await page.getByRole("button", { name: "Label", exact: true }).click();
+    await page.getByLabel("Parent panel").selectOption("7");
     await openModule(page, "LVGL Export");
     await expect(page.locator("pre.code")).toContainText("lv_switch_create");
     await expect(page.locator("pre.code")).toContainText("LV_IMG_DECLARE(img_logo)");
     await expect(page.locator("pre.code")).toContainText("lv_img_set_src");
     await expect(page.locator("pre.code")).toContainText("lv_obj_set_layout");
     await expect(page.locator("pre.code")).toContainText("LV_FLEX_FLOW_ROW");
+    await expect(page.locator("pre.code")).toContainText("ui_main_Label_8 = lv_label_create(ui_main_Panel_7)");
     await expect(page.locator("pre.code")).toContainText("lv_scr_load(ui_screen_2)");
     await expect(page.locator(".chip", { hasText: /widgets из UI Designer/ })).toBeVisible();
   });

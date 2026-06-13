@@ -9,7 +9,7 @@ Current UCP web behavior is **direct LVGL C export**, not SquareLine import/expo
 - UI Designer stores screens/widgets in `platform_app/web/src/design.ts` as `uiProject`; legacy single-screen `uiDesign` remains for compatibility.
 - LVGL Export calls `genLvglProject()` for project export and keeps `genLvgl()` for current-screen export.
 - The generated artifact is currently `ui.c` + `ui.h` with LVGL v8-style screen init functions.
-- Current direct export includes minimal event callback stubs, project-level screen-load event actions, bgColor/radius style tokens, `Image.assetId` source binding and `Panel` flex layout metadata; this still is not SquareLine project compatibility.
+- Current direct export includes minimal event callback stubs, project-level screen-load event actions, bgColor/radius style tokens, `Image.assetId` source binding, `Panel` flex layout metadata and same-screen `Panel` child parents; this still is not SquareLine project compatibility.
 
 ## Boundary
 
@@ -34,6 +34,7 @@ The lab tracks:
 - LVGL v8/v9 compatibility matrix;
 - multi-screen model proposal;
 - richer-styles/themes/assets/richer-events/layout experiments, with minimal direct-export slices promoted only after tests;
+- current confirmed layout work covers minimal `Panel.layout` and non-Panel `parentId` only, not SquareLine project hierarchy;
 - golden-output tests for generated `ui.c/ui.h`;
 - possible SquareLine bridge fixtures.
 

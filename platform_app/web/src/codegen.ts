@@ -162,10 +162,45 @@ function emitWidget(out: string[], w: UiW, nm: string, parent: string) {
 }
 
 // Генерирует ui.c/ui.h для одного экрана из реальных виджетов.
+function widgetsById(widgets: UiW[]): Map<number, UiW> {
+  return new Map(widgets.map((w) => [w.id, w]));
+}
+
+function panelParentIdFor(w: UiW, byId: Map<number, UiW>): number | null {
+  const parentId = w.parentId;
+  if (w.type === "Panel" || typeof parentId !== "number" || parentId === w.id) return null;
+  const parent = byId.get(parentId);
+  return parent?.type === "Panel" ? parent.id : null;
+}
+
+function orderWidgetsForLvgl(widgets: UiW[]): UiW[] {
+  const byId = widgetsById(widgets);
+  const ordered: UiW[] = [];
+  const pushed = new Set<number>();
+  const push = (w: UiW) => {
+    const parentId = panelParentIdFor(w, byId);
+    const parent = parentId === null ? null : byId.get(parentId);
+    if (parent && !pushed.has(parent.id)) push(parent);
+    if (!pushed.has(w.id)) {
+      ordered.push(w);
+      pushed.add(w.id);
+    }
+  };
+  for (const w of widgets) push(w);
+  return ordered;
+}
+
+function parentNameFor(w: UiW, byId: Map<number, UiW>, names: Map<number, string>, screenName: string): string {
+  const parentId = panelParentIdFor(w, byId);
+  return parentId === null ? screenName : names.get(parentId) ?? screenName;
+}
+
 export function genLvgl(widgets: UiW[], screen = "main"): LvglOut {
   const scr = cident(screen, "main");
   const names = new Map<number, string>();
   const used = new Set<string>();
+  const byId = widgetsById(widgets);
+  const orderedWidgets = orderWidgetsForLvgl(widgets);
   for (const w of widgets) {
     let base = cident(`${w.type}_${w.id}`, `obj_${w.id}`);
     let n = base, k = 1;
@@ -187,8 +222,8 @@ export function genLvgl(widgets: UiW[], screen = "main"): LvglOut {
   c.push("", `void ui_${scr}_screen_init(void) {`);
   c.push(`    ui_${scr} = lv_obj_create(NULL);`);
   c.push(`    lv_obj_clear_flag(ui_${scr}, LV_OBJ_FLAG_SCROLLABLE);`);
-  for (const w of widgets) {
-    emitWidget(c, w, names.get(w.id)!, `ui_${scr}`);
+  for (const w of orderedWidgets) {
+    emitWidget(c, w, names.get(w.id)!, parentNameFor(w, byId, names, `ui_${scr}`));
   }
   c.push("}", "");
 
@@ -246,7 +281,9 @@ export function genLvglProject(project: LvglProjectDesign): LvglOut {
     c.push("", `void ui_${screen.id}_screen_init(void) {`);
     c.push(`    ui_${screen.id} = lv_obj_create(NULL);`);
     c.push(`    lv_obj_clear_flag(ui_${screen.id}, LV_OBJ_FLAG_SCROLLABLE);`);
-    for (const w of screen.widgets) emitWidget(c, w, namesByScreen.get(screen.id)!.get(w.id)!, `ui_${screen.id}`);
+    const names = namesByScreen.get(screen.id)!;
+    const byId = widgetsById(screen.widgets);
+    for (const w of orderWidgetsForLvgl(screen.widgets)) emitWidget(c, w, names.get(w.id)!, parentNameFor(w, byId, names, `ui_${screen.id}`));
     c.push("}");
   }
   c.push("", "void ui_init(void) {");

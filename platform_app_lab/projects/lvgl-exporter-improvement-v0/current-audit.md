@@ -33,7 +33,7 @@
 - Pre-slice-03: no first-class persisted/UI multi-screen model. A generator-only model existed in `genLvglProject()`.
 - Minimal style metadata now exists for background color and radius; no theme/font/image asset model yet.
 - Minimal event/action metadata now exists for clicked/value_changed callback stubs and screen-load navigation actions; richer action graphs are still pending.
-- No layout/container abstraction.
+- Minimal Panel layout and child-parent metadata exist; full nested/responsive layout abstraction is still pending.
 - No project skeleton export for ESP-IDF, CMake or PlatformIO.
 - No explicit LVGL v8/v9 compatibility matrix.
 - No SquareLine project import/export bridge.
@@ -120,11 +120,22 @@ The action-routing slice adds:
 - current-screen export fallback TODOs when the target screen is unavailable in that mode;
 - `.ucp` v2 round-trip coverage through `uiProject`.
 
+## Addendum -- 2026-06-13 Minimal Panel Child Parents
+
+The container-parent slice adds:
+
+- `UiW.parentId?: number` for non-Panel widgets;
+- same-screen validation so only a `Panel` can be selected as parent;
+- UI Designer `Parent panel` property control;
+- canvas preview and drag math that keep child coordinates relative to the selected panel;
+- LVGL v8 object creation under the panel parent, with parent-before-child emission order;
+- `.ucp` v2 round-trip coverage through `uiProject`.
+
 Still open:
 
 - full style/theme/font/image asset model and binary/image file pipeline;
 - richer event/action routing beyond direct screen-load callbacks;
-- full layout/container hierarchy, child placement and responsive profiles;
+- nested containers, auto child reflow and responsive profiles;
 - project skeleton export;
 - LVGL v9 output mode;
 - SquareLine project fixture.

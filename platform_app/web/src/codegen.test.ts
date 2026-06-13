@@ -116,6 +116,16 @@ describe("genLvgl", () => {
     expect(out.c).toContain("lv_obj_set_style_pad_row(ui_Panel_1, 6, LV_PART_MAIN | LV_STATE_DEFAULT);");
     expect(out.c).toContain("lv_obj_set_style_pad_column(ui_Panel_1, 6, LV_PART_MAIN | LV_STATE_DEFAULT);");
   });
+
+  it("creates child widgets under Panel parents", () => {
+    const out = genLvgl([
+      { id: 2, type: "Label", x: 8, y: 10, w: 100, h: 24, text: "Child", parentId: 1 },
+      { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "" },
+    ], "main");
+    expect(out.c).toContain("ui_Panel_1 = lv_obj_create(ui_main);");
+    expect(out.c).toContain("ui_Label_2 = lv_label_create(ui_Panel_1);");
+    expect(out.c.indexOf("ui_Panel_1 = lv_obj_create(ui_main);")).toBeLessThan(out.c.indexOf("ui_Label_2 = lv_label_create(ui_Panel_1);"));
+  });
 });
 
 describe("genLvglProject", () => {
@@ -272,6 +282,23 @@ describe("genLvglProject", () => {
     expect(c).toContain("lv_obj_set_layout(ui_settings_Panel_2, LV_LAYOUT_FLEX);");
     expect(c).toContain("lv_obj_set_flex_flow(ui_settings_Panel_2, LV_FLEX_FLOW_ROW);");
     expect(c).toContain("lv_obj_set_style_pad_row(ui_settings_Panel_2, 4, LV_PART_MAIN | LV_STATE_DEFAULT);");
+  });
+
+  it("creates screen-scoped child widgets under Panel parents", () => {
+    const { c } = genLvglProject({
+      initialScreenId: "main",
+      screens: [
+        { id: "main", widgets: [] },
+        {
+          id: "settings",
+          widgets: [
+            { id: 2, type: "Panel", x: 8, y: 8, w: 160, h: 64, text: "" },
+            { id: 3, type: "Label", x: 6, y: 6, w: 80, h: 20, text: "Inside", parentId: 2 },
+          ],
+        },
+      ],
+    });
+    expect(c).toContain("ui_settings_Label_3 = lv_label_create(ui_settings_Panel_2);");
   });
 });
 

@@ -33,6 +33,7 @@ Collected notes:
 | Screen navigation action | button click target screen | generated callback body with `lv_scr_load(ui_target)` |
 | Asset placeholder | image widget with asset id | generated TODO or asset reference with explicit missing-asset warning |
 | Layout container | Panel with flex row/column metadata | generated parent object and v8 flex setup calls |
+| Container parent | label/button with `parentId` pointing at a Panel | child object is created with the panel as LVGL parent |
 
 ## Test Strategy
 
@@ -93,6 +94,14 @@ Eighth selected slice:
 - Minimal event action metadata: `event.action?: { kind: "screen_load"; targetScreenId: string }`.
 - LVGL v8 project export resolves target screens and emits `lv_scr_load(ui_target)` inside the generated handler.
 - UI Designer property controls for Action and Target screen.
+- Golden-output checks, `.ucp` round-trip coverage and UI Designer -> LVGL Export smoke coverage.
+
+Ninth selected slice:
+
+- Minimal Panel child-parent metadata: `parentId?: number` on non-Panel widgets.
+- UI Designer property control for choosing a same-screen Panel as parent.
+- Canvas preview and drag math keep child coordinates relative to the selected Panel.
+- LVGL v8 export creates children under the Panel object and emits parents before children.
 - Golden-output checks, `.ucp` round-trip coverage and UI Designer -> LVGL Export smoke coverage.
 
 ## Promotion Workflow

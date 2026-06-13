@@ -37,7 +37,7 @@ export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export interface UiStyle { bgColor?: string; radius?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; }
-export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; assetId?: string; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
+export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
 export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: string; }
 export const UI_EVENT_CODES: UiEventCode[] = ["clicked", "value_changed"];
@@ -53,7 +53,7 @@ const DEFAULT_UI_WIDGETS: UiW[] = [
 
 function normalizeUiDesign(raw: unknown): UiW[] | null {
   if (!Array.isArray(raw)) return null;
-  return raw.filter(obj).map((w, i) => ({
+  const widgets = raw.filter(obj).map((w, i) => ({
     id: finite(w.id, i + 1),
     type: typeof w.type === "string" && w.type ? w.type : "Label",
     x: finite(w.x, 0),
@@ -61,11 +61,32 @@ function normalizeUiDesign(raw: unknown): UiW[] | null {
     w: Math.max(1, finite(w.w, 80)),
     h: Math.max(1, finite(w.h, 30)),
     text: typeof w.text === "string" ? w.text : "",
+    ...normalizeUiParent(w.parentId),
     ...normalizeUiAsset(w.assetId),
     ...normalizeUiEvent(w.event),
     ...normalizeUiStyle(w.style),
     ...normalizeUiLayout(w.layout),
   }));
+  return sanitizeUiParents(widgets);
+}
+
+function normalizeUiParent(raw: unknown): { parentId?: number } {
+  const parentId = Number(raw);
+  if (!Number.isFinite(parentId)) return {};
+  const id = Math.round(parentId);
+  return id > 0 ? { parentId: id } : {};
+}
+
+function sanitizeUiParents(widgets: UiW[]): UiW[] {
+  const byId = new Map(widgets.map((w) => [w.id, w]));
+  return widgets.map((w) => {
+    const parentId = w.parentId;
+    if (typeof parentId !== "number") return w;
+    const parent = byId.get(parentId);
+    if (w.type !== "Panel" && parent && parent.id !== w.id && parent.type === "Panel") return { ...w, parentId };
+    const { parentId: _parentId, ...rest } = w;
+    return rest;
+  });
 }
 
 function normalizeUiAsset(raw: unknown): { assetId?: string } {

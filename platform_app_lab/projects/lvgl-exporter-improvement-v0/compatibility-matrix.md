@@ -31,6 +31,7 @@ Multi-screen output:
 - Widgets may optionally carry minimal `style` metadata for `bgColor` and `radius`; the v8 generator emits `lv_style_t` init and `lv_obj_add_style(...)`.
 - `Image` widgets may optionally carry an `assetId`; the v8 generator emits `LV_IMG_DECLARE(...)` and `lv_img_set_src(...)`, or an explicit TODO when the asset is missing.
 - `Panel` widgets may optionally carry minimal `layout` metadata for `flex_row` or `flex_column`; the v8 generator emits flex layout setup and gap pad setters.
+- Non-Panel widgets may optionally carry `parentId` that points at a same-screen `Panel`; the v8 generator creates child objects under the panel parent and emits parents before children.
 
 Current API flavor:
 
@@ -47,7 +48,8 @@ Current API flavor:
 | Events | `lv_obj_add_event_cb(widget, callback, LV_EVENT_*, NULL)` for clicked/value_changed | compatible | compatible conceptually | Minimal callback stubs and screen-load action routing implemented; richer action graph pending |
 | Screen action | `lv_scr_load(ui_target)` inside generated event handlers | compatible | v9 naming likely differs | Project export resolves known target screens; current-screen export falls back to TODO if target is unavailable |
 | Styles | `lv_style_t`, `lv_style_set_bg_color`, `lv_style_set_bg_opa`, `lv_style_set_radius`, `lv_obj_add_style` | compatible | compatible conceptually | Minimal bgColor/radius tokens implemented; themes/fonts/states pending |
-| Layout | `lv_obj_set_layout(..., LV_LAYOUT_FLEX)`, `lv_obj_set_flex_flow(...)`, pad row/column gap for `Panel.layout` | compatible | conceptually compatible, API naming needs v9 check | Minimal Panel layout only; no child hierarchy or responsive rules yet |
+| Layout | `lv_obj_set_layout(..., LV_LAYOUT_FLEX)`, `lv_obj_set_flex_flow(...)`, pad row/column gap for `Panel.layout` | compatible | conceptually compatible, API naming needs v9 check | Minimal Panel layout only; no nested hierarchy or responsive rules yet |
+| Object parent | `lv_label_create(ui_Panel_1)` when `parentId` points at a Panel | compatible | compatible conceptually | Minimal same-screen Panel child parent only; no nested Panel or auto-reflow yet |
 | Assets | `LV_IMG_DECLARE(asset)` + `lv_img_set_src(widget, &asset)` for `Image.assetId` | compatible | conceptually compatible, API naming needs v9 check | Minimal placeholder only; no binary/image file pipeline |
 
 ## Widget Mapping
@@ -62,7 +64,7 @@ Current API flavor:
 | `Chart` | `lv_chart_create` | pos/size only | Needs data series model |
 | `Gauge` | `lv_meter_create` | pos/size only | Needs meter scale model |
 | `Bar` | `lv_bar_create` | pos/size only | Add value/range later |
-| `Panel` | `lv_obj_create` | pos/size + optional flex layout metadata | Minimal container marker; full child hierarchy still pending |
+| `Panel` | `lv_obj_create` | pos/size + optional flex layout metadata + optional child object parent target | Minimal container marker; nested containers and responsive profiles still pending |
 | `Dropdown` | `lv_dropdown_create` | options from text | Text is overloaded as options |
 | `Checkbox` | `lv_checkbox_create` | label text | Add checked state later |
 | `Roller` | `lv_roller_create` | options from text | Text is overloaded as options |
@@ -99,4 +101,5 @@ Next slice after the first matrix:
 6. Added minimal Image `assetId` placeholders with `LV_IMG_DECLARE` and `lv_img_set_src`.
 7. Added minimal Panel flex layout metadata with `lv_obj_set_layout`, `lv_obj_set_flex_flow` and gap pad setters.
 8. Added minimal `screen_load` event action routing with `lv_scr_load(ui_target)`.
-9. Defer full asset pipeline, full container hierarchy/responsive layouts, richer action graphs, themes/fonts/states and v9 mode to later slices.
+9. Added minimal Panel child-parent metadata with same-screen parent validation and LVGL child object creation under the Panel.
+10. Defer full asset pipeline, nested/responsive layouts, richer action graphs, themes/fonts/states and v9 mode to later slices.

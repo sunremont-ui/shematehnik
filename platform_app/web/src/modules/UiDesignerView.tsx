@@ -71,16 +71,29 @@ export function UiDesignerView() {
   }
   function down(e: React.PointerEvent, w: W) {
     const r = screenRef.current!.getBoundingClientRect();
-    drag.current = { id: w.id, dx: e.clientX - r.left - w.x, dy: e.clientY - r.top - w.y };
+    const pos = widgetScreenPos(w, widgets);
+    drag.current = { id: w.id, dx: e.clientX - r.left - pos.x, dy: e.clientY - r.top - pos.y };
     setSel(w.id); (e.target as Element).setPointerCapture(e.pointerId);
   }
   function move(e: React.PointerEvent) {
-    if (!drag.current) return;
+    const currentDrag = drag.current;
+    if (!currentDrag) return;
     const r = screenRef.current!.getBoundingClientRect();
-    setWidgets((ws) => ws.map((w) => w.id === drag.current!.id
-      ? { ...w, x: Math.max(0, e.clientX - r.left - drag.current!.dx), y: Math.max(0, e.clientY - r.top - drag.current!.dy) } : w));
+    const nextX = e.clientX - r.left - currentDrag.dx;
+    const nextY = e.clientY - r.top - currentDrag.dy;
+    setWidgets((ws) => ws.map((w) => {
+      if (w.id !== currentDrag.id) return w;
+      const parent = panelParent(w, ws);
+      return {
+        ...w,
+        x: Math.max(0, Math.round(nextX - (parent?.x ?? 0))),
+        y: Math.max(0, Math.round(nextY - (parent?.y ?? 0))),
+      };
+    }));
   }
   const selected = widgets.find((w) => w.id === sel) ?? null;
+  const parentPanelOptions = selected?.type === "Panel" ? [] : widgets.filter((w) => w.type === "Panel" && w.id !== selected?.id);
+  const visualWidgets = [...widgets].sort((a, b) => Number(a.type !== "Panel") - Number(b.type !== "Panel"));
 
   return (
     <div>
@@ -104,10 +117,12 @@ export function UiDesignerView() {
           <div ref={screenRef} onPointerMove={move} onPointerUp={() => { if (drag.current) { ucp.markModified(); drag.current = null; } }}
             onClick={(e) => { if (e.target === screenRef.current) setSel(null); }}
             style={{ position: "relative", width: 240, height: 320, background: "#000", border: "6px solid #222", borderRadius: 14 }}>
-            {widgets.map((w) => (
+            {visualWidgets.map((w) => {
+              const pos = widgetScreenPos(w, widgets);
+              return (
               <div key={w.id} onPointerDown={(e) => down(e, w)}
                 style={{
-                  position: "absolute", left: w.x, top: w.y, width: w.w, height: w.h,
+                  position: "absolute", left: pos.x, top: pos.y, width: w.w, height: w.h,
                   display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab",
                   fontSize: 12, color: "#e6edf3", userSelect: "none",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 4px",
@@ -118,7 +133,8 @@ export function UiDesignerView() {
                 }}>
                 {w.type === "Arc" ? "60°" : w.type === "Image" ? (w.assetId ? `img:${w.assetId}` : "Image") : w.text}
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         <div className="card">
@@ -130,6 +146,14 @@ export function UiDesignerView() {
               {selected.type === "Image" && (
                 <label className="field">Asset id
                   <input value={selected.assetId ?? ""} placeholder="img_logo" onChange={(e) => setAssetId(selected, e.target.value)} />
+                </label>
+              )}
+              {selected.type !== "Panel" && (
+                <label className="field">Parent panel
+                  <select value={selected.parentId ?? ""} onChange={(e) => setParent(selected, e.target.value)}>
+                    <option value="">Screen</option>
+                    {parentPanelOptions.map((panel) => <option key={panel.id} value={panel.id}>{panel.text || `Panel #${panel.id}`}</option>)}
+                  </select>
                 </label>
               )}
               {selected.type === "Panel" && (
@@ -235,6 +259,11 @@ export function UiDesignerView() {
   function setLayout(w: W, kind: UiLayoutKind | "", gap = w.layout?.gap ?? 0) {
     patch(w.id, kind ? { layout: { kind, gap: Math.max(0, Math.round(gap)) } } : { layout: undefined });
   }
+  function setParent(w: W, raw: string) {
+    const parentId = Number(raw);
+    const parent = widgets.find((candidate) => candidate.id === parentId && candidate.type === "Panel" && candidate.id !== w.id);
+    patch(w.id, { parentId: parent ? parent.id : undefined });
+  }
 }
 
 function updateScreenWidgets(project: UiProjectDesign, screenId: string, widgets: W[]): UiProjectDesign {
@@ -244,6 +273,16 @@ function updateScreenWidgets(project: UiProjectDesign, screenId: string, widgets
     initialScreenId: project.initialScreenId ?? screens[0].id,
     screens: screens.map((screen) => screen.id === screenId ? { ...screen, widgets } : screen),
   };
+}
+
+function panelParent(w: W, widgets: W[]): W | null {
+  if (w.type === "Panel" || typeof w.parentId !== "number") return null;
+  return widgets.find((candidate) => candidate.id === w.parentId && candidate.type === "Panel") ?? null;
+}
+
+function widgetScreenPos(w: W, widgets: W[]): { x: number; y: number } {
+  const parent = panelParent(w, widgets);
+  return { x: w.x + (parent?.x ?? 0), y: w.y + (parent?.y ?? 0) };
 }
 
 function suggestEventHandler(screenId: string, w: W): string {

@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-13] lab | Web -- LVGL minimal Panel child parents
+
+- `platform_app/web/src/design.ts`: added optional `UiW.parentId` and normalization that keeps it only for non-Panel widgets pointing at a same-screen `Panel`.
+- `platform_app/web/src/codegen.ts`: LVGL export now creates child widgets under their Panel parent and emits valid parents before children in both single-screen and project exports.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: selected non-Panel widgets expose `Parent panel`; canvas preview and drag math treat child coordinates as relative to the selected Panel.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`, `platform_app/web/e2e/smoke.spec.ts`: added single-screen/project parent creation checks, `.ucp` round-trip coverage and UI Designer -> LVGL Export smoke coverage.
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-09-container-parents.md`, README/audit/matrix/research-plan, `wiki/modules/codegen.md`, `wiki/integration/squareline.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, `wiki/skills.md`, `platform_app/web/README.md`, `.codex/skills/ucp-web-lvgl-lab/SKILL.md` and `.claude/commands/ucp-web-lvgl-lab.md`: lab, curated docs and skills promoted; nested/responsive layouts, full asset pipeline, richer action graph and LVGL v9 mode remain deferred.
+- Checks: `npm.cmd test -- codegen.test.ts project.test.ts` -- 53 passed; `npm.cmd test` -- 16 files / 140 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; `npm.cmd run test:e2e -- --grep "CodeGen LVGL"` printed `ok 1`, then hit the known Playwright webServer shutdown timeout after 180s.
+
+---
+
 ## [2026-06-13] lab | Web -- LVGL minimal screen-load actions
 
 - `platform_app/web/src/design.ts`: extended `UiEvent` with optional `action: { kind: "screen_load"; targetScreenId }`, normalized through the persisted `uiProject` path.

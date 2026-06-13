@@ -39,7 +39,7 @@
 | CRC Calculator | CRC-8/16/32 (реальный расчёт ядром) |
 | File | Save/Open `.ucp` v2 через File System Access API при наличии поддержки, Recent handles в IndexedDB, **импорт** `.net` и `.kicad_sch`, автосейв проекта + design-store; undo/redo пока только для `UcpProject` |
 
-Следующий исследовательский контур: **LVGL Lab / UI Designer 2.0** в `../../platform_app_lab/projects/lvgl-exporter-improvement-v0/` — multi-screen, styles/themes, events/actions, assets/layouts и golden-output тесты для будущего расширения LVGL Export.
+Следующий исследовательский контур: **LVGL Lab / UI Designer 2.0** в `../../platform_app_lab/projects/lvgl-exporter-improvement-v0/` — multi-screen, styles/themes, events/actions, assets/layouts, Panel child parents и golden-output тесты для будущего расширения LVGL Export.
 
 Protocol Analyzer декодирует Packet Editor/UART capture, Logic Analyzer разбирает сигналовые VCD/CSV-захваты, Program System генерирует C FSM, AI Schematic может размещать схему через ключ пользователя в браузере; OTA/Firmware/Agent пока остаются частично симуляционными.
 

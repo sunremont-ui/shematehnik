@@ -66,12 +66,13 @@ Current status:
 - Minimal style model: widgets can store `style.bgColor` and `style.radius`; generated LVGL v8 C emits `lv_style_t` init, background color/opacity, radius and `lv_obj_add_style(...)`.
 - Minimal image asset placeholder: `Image` widgets can store `assetId`; generated LVGL v8 C emits `LV_IMG_DECLARE(asset)` and `lv_img_set_src(widget, &asset)`, or an explicit TODO when the image source is still missing.
 - Minimal Panel layout model: `Panel` widgets can store `layout.kind` (`flex_row` or `flex_column`) and `layout.gap`; generated LVGL v8 C emits `lv_obj_set_layout(..., LV_LAYOUT_FLEX)`, `lv_obj_set_flex_flow(...)` and gap pad setters.
+- Minimal Panel child-parent model: non-Panel widgets can store `parentId` pointing to a same-screen `Panel`; generated LVGL v8 C creates children with the panel object as parent and emits panels before their children.
 
 Known improvement area for the next laboratory pass:
 
 - richer style/theme tokens, fonts and full image/asset pipeline;
 - richer event/action workflows beyond direct screen loads, including user data, callback bodies and action chains;
-- full layout containers with parent/child hierarchy, flex/grid-like positioning and responsive display profiles;
+- nested layout containers, auto child reflow, flex/grid-like positioning and responsive display profiles;
 - LVGL v8/v9 compatibility matrix;
 - project-level export such as CMake/ESP-IDF/PlatformIO skeletons;
 - additional golden-output fixtures for generated `ui.c/ui.h` as the model expands.
