@@ -1,0 +1,4 @@
+interface:
+  display_name: "UCP Web EE Calculators"
+  short_description: "Maintain practical EE calculator module"
+  default_prompt: "Use $ucp-web-ee-calculators to extend the UCP web electronics calculators."

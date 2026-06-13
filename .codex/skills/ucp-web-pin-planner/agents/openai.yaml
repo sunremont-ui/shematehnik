@@ -1,0 +1,4 @@
+interface:
+  display_name: "UCP Web Pin Planner"
+  short_description: "Implement and maintain the UCP web Pin Planner module."
+  default_prompt: "Use this skill to continue the UCP Web Pin Planner module, tests, roadmap, and wiki updates."

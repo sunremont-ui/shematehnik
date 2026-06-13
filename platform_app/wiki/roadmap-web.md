@@ -90,49 +90,65 @@ Programs/Analyzer; SPICE линейный; PCB-DRC без зазоров. При
 
 Скилл: `/ucp-web-impl-sch-ux`.
 
-1. [ ] Multi-select (рамка) + групповое перемещение/удаление
-2. [ ] Copy/paste (Ctrl+C/V) с переименованием ref
-3. [ ] Junction dots на T-соединениях проводов
-4. [ ] Правка value/ref по месту (двойной клик)
-5. [ ] ERC: типы пинов (power/in/out), конфликт выходов
+1. [x] Multi-select (рамка) + групповое перемещение/удаление
+2. [x] Copy/paste (Ctrl+C/V) с переименованием ref
+3. [x] Junction dots на T-соединениях проводов
+4. [x] Правка value/ref по месту (двойной клик)
+5. [x] ERC: типы пинов (power/in/out), конфликт выходов
 
 ## Фаза 14 — Библиотека и пользовательские детали 📚
 
 Скилл: `/ucp-web-impl-library`.
 
-1. [ ] **Symbol Editor → библиотека**: создание своей детали (kind/пины/футпринт), persist в localStorage + `.ucp`
-2. [ ] **Импорт `.kicad_sym`** — пополнение библиотеки из KiCad
-3. [ ] Расширение штатной библиотеки (50+ деталей, поиск)
+1. [x] **Symbol Editor → библиотека**: создание своей детали (kind/пины/футпринт), persist в localStorage + `.ucp`
+2. [x] **Импорт `.kicad_sym`** — пополнение библиотеки из KiCad
+3. [x] Расширение штатной библиотеки (50+ деталей, поиск)
 
 ## Фаза 15 — Кросс-модули: демо → генераторы 🔁
 
 Скиллы: `/ucp-web-impl-fsm`, `/ucp-web-impl-analyzer`, `/ucp-web-impl-ai`.
 
-1. [ ] **Program System** — визуальный FSM-редактор (состояния/переходы) → генерация C (switch-case)
-2. [ ] **Protocol Analyzer реальный** — декод захвата UART Monitor по описанию из Packet Editor (стор `design.ts`)
-3. [ ] **AI Schematic** (опционально) — прямой запрос к Claude API с ключом пользователя (`anthropic-dangerous-direct-browser-access`), ответ → размещение в `UcpProject`
+1. [x] **Program System** — визуальный FSM-редактор (состояния/переходы) → генерация C (switch-case)
+2. [x] **Protocol Analyzer реальный** — декод захвата UART Monitor по описанию из Packet Editor (стор `design.ts`)
+3. [x] **AI Schematic** (опционально) — прямой запрос к Claude API с ключом пользователя (`anthropic-dangerous-direct-browser-access`), ответ → размещение в `UcpProject`
 
 ## Фаза 16 — Системная гигиена 🧹
 
 Скиллы: `/ucp-web-impl-project-v2`, `/ucp-web-impl-system`.
 
-1. [ ] **`.ucp` v2** — все артефакты в одном файле (schematic + uiDesign + packet + PID + FSM), миграция v1
-2. [ ] **Code-split three.js** — lazy import (~767 КБ → ~250 КБ основной бандл)
-3. [ ] **File System Access API** — Save в реальный файл, recent files
-4. [ ] **PWA** — манифест + service worker, установка как приложение
-5. [ ] **Error boundary на модуль** — падение вида не роняет оболочку
-6. [ ] **Command palette** (Ctrl+K) — быстрый переход по модулям
+1. [x] **`.ucp` v2** — все артефакты в одном файле (schematic + uiProject/legacy uiDesign + packet + PID + FSM), миграция v1
+2. [x] **Code-split three.js** — lazy import (~767 КБ → ~250 КБ основной бандл)
+3. [x] **File System Access API** — Save в реальный файл, recent files
+4. [x] **PWA** — манифест + service worker, установка как приложение
+5. [x] **Error boundary на модуль** — падение вида не роняет оболочку
+6. [x] **Command palette** (Ctrl+K) — быстрый переход по модулям
 
 ## Фаза 17 — Новые модули ➕
 
 Скилл: `/ucp-web-impl-new-modules` (+ `/ucp-web-module` как шаблон).
 
-1. [ ] **Filter Designer** — RC/RLC/активные фильтры, АЧХ через готовый `acSweep`
-2. [ ] **Pin Planner** — раскладка пинов MCU (мини-CubeMX) + генерация init-кода
-3. [ ] **EE Calculators** — делитель, резистор LED, ширина дорожки, теплоотвод LDO
-4. [ ] **Logic Analyzer** — импорт VCD/CSV, тайминг-диаграмма, декод I2C/SPI/UART
-5. [ ] **Power Budget** — потребление по BOM и шинам питания
-6. [ ] **Register Map** — карта регистров → C-header + Markdown-доки
+1. [x] **Filter Designer** — RC/RLC/активные фильтры, АЧХ через готовый `acSweep`
+2. [x] **Pin Planner** — раскладка пинов MCU (мини-CubeMX) + генерация init-кода
+3. [x] **EE Calculators** — делитель, резистор LED, ширина дорожки, теплоотвод LDO
+4. [x] **Logic Analyzer** — импорт VCD/CSV, тайминг-диаграмма, декод I2C/SPI/UART
+5. [x] **Power Budget** — потребление по BOM и шинам питания
+6. [x] **Register Map** — карта регистров → C-header + Markdown-доки
+
+## Следующий контур — LVGL Lab / UI Designer 2.0
+
+Статус: lab in progress; L0/L1/L3 done, L2/L4 multi-screen generator, UI state / `.ucp` migration wrapper, minimal event callback slice, minimal screen-load action routing, minimal style-token slice, minimal Image asset placeholder and minimal Panel flex layout slice done; next candidate is a fuller asset/layout pipeline, richer action graph or LVGL v9 mode. Лаборатория: `platform_app_lab/projects/lvgl-exporter-improvement-v0/`.
+Скилл/команда: `/ucp-web-lvgl-lab`.
+
+Цель: улучшать LVGL Export через измеримый research-first контур, а не расширять генератор вслепую. Текущий baseline — single-screen `ui.c/ui.h` из legacy `uiDesign`; он зафиксирован source notes, compatibility matrix, exact golden-output тестом и отдельной записью в wiki log. Multi-screen baseline реализован как `uiProject` + `genLvglProject()`: UI Designer редактирует экраны, `.ucp` v2 сохраняет `design.uiProject`, старый `design.uiDesign` мигрирует в один `main` screen.
+
+| Уровень | Статус | Что проверить |
+|---|---|---|
+| L0 Audit | [x] | Текущий `uiDesign` model, `genLvgl()`, UI Designer и LVGL Export описаны в lab audit |
+| L1 Compatibility | [x] first pass | Матрица LVGL v8/v9: текущий v8-style baseline сохранён; v9/SquareLine claims отложены до fixtures |
+| L2 Model | [x] multi-screen + events/actions + styles + assets + layout | `UiProjectDesign`/`UiScreenDesign`, `uiProject`, `.ucp` migration wrapper, `genLvglProject()`, minimal `UiEvent`, `screen_load` action, `UiStyle`, `Image.assetId` and `Panel.layout` metadata ready; full hierarchy pending |
+| L3 Golden tests | [x] baseline + events/actions + styles + assets + layout | Exact fixture для текущих `ui.c/ui.h` в `codegen.test.ts`; event, screen-load action, style, image asset and Panel flex layout checks added |
+| L4 Slice | [x] state + events/actions + styles + assets + layout | Multi-screen generator/UI state plus minimal clicked/value_changed callback stubs, screen-load controls/export, bgColor/radius controls, Image asset id export and Panel layout controls/export |
+| L5 Promotion | [x] current slices | Подтверждённые single-screen, multi-screen, persistence, minimal-event/action, minimal-style, minimal-asset and minimal-layout решения перенесены в `modules/codegen.md`, `integration/squareline.md`, roadmap и `log.md` |
 
 ## Принципы
 

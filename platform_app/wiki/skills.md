@@ -33,6 +33,17 @@ Available slash commands when working in this repository.
 | `/ucp-web-impl-project-v2` | 16.1 | `.ucp` v2 — все артефакты в одном файле + миграция |
 | `/ucp-web-impl-system` | 16.2–16.6 | Code-split three, FS Access API, PWA, error boundary, Ctrl+K |
 | `/ucp-web-impl-new-modules` | 17 | Filter Designer, Pin Planner, EE Calculators, Logic Analyzer, Power Budget, Register Map |
+| `/ucp-web-impl-pin-planner` | 17.2 | Pin Planner: MCU pinout data, conflict checks, SVG package UI, generated STM32/Arduino/ESP-IDF init code |
+| `/ucp-web-impl-ee-calculators` | 17.3 | EE Calculators: voltage divider, LED resistor, IPC-2221 trace width, LDO thermal checks |
+| `/ucp-web-impl-logic-analyzer` | 17.4 | Logic Analyzer: VCD/CSV import, timing canvas, cursors, UART/I2C/SPI decode |
+| `/ucp-web-impl-power-budget` | 17.5 | Power Budget: BOM current estimates, power-net rails, budgets, warnings, CSV export |
+| `/ucp-web-impl-register-map` | 17.6 | Register Map: device/register/bitfield editor, C header, Markdown docs |
+
+## UCP Web — Laboratory / next research
+
+| Команда | Контур | Назначение |
+|---------|--------|-----------|
+| `/ucp-web-lvgl-lab` | LVGL Lab | Research-first улучшение UI Designer/LVGL Export: LVGL notes, compatibility matrix, single-screen golden baseline, multi-screen generator, UI state / `.ucp` wrapper, minimal event callback stubs, screen-load actions, style tokens, image asset placeholders and Panel flex layout done; next preferred slice is fuller asset/layout pipeline, richer action graph or LVGL v9 mode |
 
 ## Firmware Project (v3.1)
 

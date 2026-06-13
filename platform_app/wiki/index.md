@@ -9,7 +9,7 @@ Catalog of all wiki pages, organized by category.
 | [Overview](overview.md) | What this project is and why it exists |
 | [Philosophy](philosophy.md) | Design principles, values, and approach |
 | [Roadmap](roadmap.md) | Version plan v0.1 → v2.0 (ENTIRE ROADMAP COMPLETE) |
-| [Roadmap — Web](roadmap-web.md) | Веб-фронтенд: фазы 0–6 done, фаза 7+ (fab-комплект, SPICE, 3D) |
+| [Roadmap — Web](roadmap-web.md) | Веб-фронтенд: цикл 2 фазы 10–17 закрыты, следующий контур — LVGL Lab / UI Designer 2.0 |
 
 ## Architecture
 
@@ -32,13 +32,13 @@ Catalog of all wiki pages, organized by category.
 | [PID Tuner](modules/pid_tuner.md) | PID loops with real-time graphing and autotuning |
 | [Program System](modules/program_system.md) | Ready-made programs (greenhouse, washer, fan) |
 | [Protocol Designer](modules/protocol.md) | Sequence diagrams, packet editor, UART monitor, analyzer |
-| [Code Generator](modules/codegen.md) | CRC calc, LVGL export, Arduino/ESP-IDF, protocol codegen |
+| [Code Generator](modules/codegen.md) | CRC, LVGL export, Arduino/ESP-IDF, protocol codegen, Pin Planner, Power Budget, Register Map |
 | [AI Schematic](modules/ai_schematic.md) | Claude API → JSON parse → auto-place components + wires |
 | [OTA Flash](modules/ota_flash.md) | esptool.py via QProcess → ESP32 COM flash with progress |
 | [Firmware Project](modules/firmware_project.md) | Визуальная панель прошивок: дерево .firmproj со статусами, «Отдать агенту» через EventBus |
 | [Firmware Agent Runner](modules/firmware_agent_runner.md) | Claude CLI в git worktree per task: spawn + log + diff + cleanup |
 | [Soldering Iron Firmware](modules/soldering_iron_firmware.md) | STM32F401 firmware: SSD1306 + энкодер + NTC + симистор, модульная архитектура |
-| [Web Frontend](modules/web_frontend.md) | Веб-версия UI (React+TS+Vite): порт десктоп-оболочки, все 25 модулей интерактивны |
+| [Web Frontend](modules/web_frontend.md) | Веб-версия UI (React+TS+Vite): порт десктоп-оболочки, 31 модуль интерактивен |
 
 ## Concepts
 
@@ -57,7 +57,7 @@ Catalog of all wiki pages, organized by category.
 |------|---------|
 | [KiCad Integration](integration/kicad.md) | Import KiCad schematics and libraries |
 | [FreeCAD Integration](integration/freecad.md) | Reuse FreeCAD 3D parts via OpenCASCADE |
-| [SquareLine Studio Bridge](integration/squareline.md) | Import LVGL UI exports |
+| [SquareLine Studio Bridge](integration/squareline.md) | Boundary and lab path for future SquareLine/LVGL bridge work |
 | [Proteus Replacement](integration/proteus.md) | Where we replace vs complement Proteus |
 
 ## Indexing
