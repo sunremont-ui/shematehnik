@@ -100,6 +100,8 @@ describe("project serialize/deserialize", () => {
               h: 32,
               text: "Back",
               assetId: "img_settings",
+              hidden: true,
+              opa: 128,
               event: { code: "clicked", handler: "on_settings_back", action: { kind: "screen_load", targetScreenId: "main" } },
               style: { bgColor: "#1f6feb", radius: 8 },
             },
@@ -124,7 +126,12 @@ describe("project serialize/deserialize", () => {
   it("round-trips the project image asset manifest in .ucp v2", () => {
     const withAssets: UiProjectDesign = {
       initialScreenId: "main",
-      assets: [{ id: "img_logo", src: "assets/logo.png" }, { id: "img_bg" }, { id: "img_px", w: 2, h: 1, format: "rgb565", data: [0x1F, 0x00, 0x00, 0xF8] }],
+      assets: [
+        { id: "img_logo", src: "assets/logo.png" },
+        { id: "img_bg" },
+        { id: "img_px", w: 2, h: 1, format: "rgb565", data: [0x1F, 0x00, 0x00, 0xF8] },
+        { id: "img_a", w: 2, h: 1, format: "rgb565a8", data: [0x00, 0xF8, 0x80, 0x1F, 0x00, 0xFF] },
+      ],
       screens: [{ id: "main", title: "Main", widgets: [{ id: 1, type: "Image", x: 1, y: 2, w: 40, h: 40, text: "", assetId: "img_logo" }] }],
     };
     uiProject.restore(withAssets);

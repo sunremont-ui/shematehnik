@@ -115,6 +115,7 @@ export function genLvglImageAsset(asset: UiAsset): string | null {
   if (!hasInlinePixels(asset)) return null;
   const id = cident(asset.id.trim(), "ui_image_asset");
   const data = asset.data!;
+  const cf = asset.format === "rgb565a8" ? "LV_IMG_CF_TRUE_COLOR_ALPHA" : "LV_IMG_CF_TRUE_COLOR";
   const bytes = data.map((b) => `0x${(b & 0xFF).toString(16).toUpperCase().padStart(2, "0")}`);
   const rows: string[] = [];
   for (let i = 0; i < bytes.length; i += 12) rows.push("    " + bytes.slice(i, i + 12).join(", ") + ",");
@@ -123,7 +124,7 @@ export function genLvglImageAsset(asset: UiAsset): string | null {
     ...rows,
     `};`,
     `const lv_img_dsc_t ${id} = {`,
-    `    .header.cf = LV_IMG_CF_TRUE_COLOR,`,
+    `    .header.cf = ${cf},`,
     `    .header.w = ${asset.w},`,
     `    .header.h = ${asset.h},`,
     `    .data_size = ${data.length},`,
@@ -235,6 +236,8 @@ function emitWidget(out: string[], w: UiW, nm: string, parent: string) {
   emitLayout(out, w, nm);
   emitStyleAttach(out, w, nm);
   if (Number.isFinite(w.flexGrow) && (w.flexGrow ?? 0) >= 1) out.push(`    lv_obj_set_flex_grow(${nm}, ${Math.round(w.flexGrow!)});`);
+  if (w.hidden) out.push(`    lv_obj_add_flag(${nm}, LV_OBJ_FLAG_HIDDEN);`);
+  if (Number.isFinite(w.opa)) out.push(`    lv_obj_set_style_opa(${nm}, ${Math.round(w.opa!)}, LV_PART_MAIN | LV_STATE_DEFAULT);`);
   const ev = lvEventFor(w);
   if (ev) out.push(`    lv_obj_add_event_cb(${nm}, ${ev.fn}, ${ev.code}, NULL);`);
 }

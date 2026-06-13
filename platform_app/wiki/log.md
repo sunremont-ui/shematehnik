@@ -4,6 +4,29 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL widget hidden flag and opacity
+
+- `platform_app/web/src/design.ts`: added optional `UiW.hidden` (kept only when `true`) and `UiW.opa` (kept only for `0 <= n < 255`, since 255 is the opaque default).
+- `platform_app/web/src/codegen.ts`: `emitWidget` emits `lv_obj_add_flag(nm, LV_OBJ_FLAG_HIDDEN)` and `lv_obj_set_style_opa(nm, n, LV_PART_MAIN | LV_STATE_DEFAULT)` when set; unset keeps existing output.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: every widget gained a `Hidden` checkbox and an `Opacity` slider.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`: hidden/opacity emitted-when-set checks and `.ucp` v2 round-trip.
+- `platform_app_lab/.../slice-16-widget-visibility.md`, `wiki/modules/codegen.md`, `wiki/roadmap-web.md`, handoff, SKILL/command: lab slice and curated docs promoted.
+- Checks (slice 15/16 batch): `npm.cmd test` -- 17 files / 157 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (via `node node_modules/@playwright/test/cli.js`).
+
+---
+
+## [2026-06-14] lab | Web -- LVGL second image format (RGB565A8 / TRUE_COLOR_ALPHA)
+
+- `platform_app/web/src/design.ts`: `UiAsset.format` became `UiAssetFormat = "rgb565" | "rgb565a8"`; `normalizeUiAssets` gates inline pixels by bytes-per-pixel (2 or 3).
+- `platform_app/web/src/image.ts` (+ `image.test.ts`): added `rgbaToRgb565a8` (3 bytes/pixel: RGB565 LE + alpha) and `bytesPerPixel`; `hasInlinePixels` now handles both formats.
+- `platform_app/web/src/codegen.ts`: `genLvglImageAsset` selects `.header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA` for `rgb565a8`.
+- `platform_app/web/src/modules/codegen_exports.tsx`: a second `imgα` import button decodes via `rgbaToRgb565a8`; the W×H badge marks alpha assets.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`: alpha descriptor `cf`/`data_size` and `.ucp` v2 round-trip of an `rgb565a8` asset.
+- `platform_app_lab/.../slice-15-asset-alpha.md`, `wiki/modules/codegen.md`, `wiki/roadmap-web.md`, `wiki/modules/web_frontend.md`, handoff, SKILL/command: lab slice and curated docs promoted; non-RGB565 formats and asset folder/skeleton export remain deferred.
+- Checks: see the widget hidden/opacity entry (same slice 15/16 batch run).
+
+---
+
 ## [2026-06-13] lab | Web -- LVGL binary image asset pipeline (RGB565)
 
 - `platform_app/web/src/design.ts`: extended `UiAsset` with optional `w`/`h`/`format: "rgb565"`/`data` (decoded bytes), normalized strictly (kept only when `format==="rgb565"`, `w>=1`, `h>=1`, `data.length===w*h*2`).

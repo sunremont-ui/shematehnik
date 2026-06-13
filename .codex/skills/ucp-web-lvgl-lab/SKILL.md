@@ -34,6 +34,8 @@ Use this skill for research-first LVGL exporter work after roadmap phase 17.
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-12-cross-track-align.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-13-flex-grow.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-14-asset-pipeline.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-15-asset-alpha.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-16-widget-visibility.md`
    - `platform_app/web/src/design.ts`
    - `platform_app/web/src/codegen.ts`
    - `platform_app/web/src/modules/UiDesignerView.tsx`
@@ -77,5 +79,5 @@ Manual UI smoke:
 
 - Current exporter has a backward-compatible single-screen path and a persisted multi-screen `uiProject` path.
 - Use `agent-handoff.md` as the compact continuation snapshot before choosing the next slice.
-- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), a binary RGB565 image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow` and same-screen `Panel` child parents are in place; richer action graphs/styles, more asset formats, per-child flex shrink/self-align, nested/responsive layouts and LVGL v9 mode are still pending.
+- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow` and same-screen `Panel` child parents are in place; richer action graphs, font/text style tokens, asset folder export, nested/responsive layouts and LVGL v9 mode are still pending.
 - Do not mix SquareLine import promises with direct LVGL export work unless a real `.spj` or generated SquareLine project fixture is in the lab.

@@ -4,7 +4,7 @@ import { MODULE_INDEX, type ModuleDef } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
 import { uiProject, type UiAsset } from "../design.ts";
 import { packet } from "../design.ts";
-import { rgbaToRgb565 } from "../image.ts";
+import { rgbaToRgb565, rgbaToRgb565a8 } from "../image.ts";
 import { genLvgl, genLvglProject, genProtoParser, genBlink } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
@@ -34,8 +34,8 @@ function AssetManifest({ assets }: { assets: UiAsset[] }) {
   });
   const add = () => uiProject.update((proj) => ({ ...proj, assets: [...(proj.assets ?? []), { id: "" }] }));
   const remove = (i: number) => uiProject.update((proj) => ({ ...proj, assets: (proj.assets ?? []).filter((_, j) => j !== i) }));
-  // Декод картинки через canvas → RGB565 байты (чистая конвертация в image.ts).
-  const importImage = (i: number, file: File | undefined) => {
+  // Декод картинки через canvas → RGB565(/A8) байты (чистая конвертация в image.ts).
+  const importImage = (i: number, file: File | undefined, alpha: boolean) => {
     if (!file) return;
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -48,7 +48,8 @@ function AssetManifest({ assets }: { assets: UiAsset[] }) {
         if (!ctx) return;
         ctx.drawImage(img, 0, 0);
         const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        patch(i, { ...rgbaToRgb565(width, height, data), src: assets[i]?.src || file.name });
+        const px = alpha ? rgbaToRgb565a8(width, height, data) : rgbaToRgb565(width, height, data);
+        patch(i, { ...px, src: assets[i]?.src || file.name });
       } finally {
         URL.revokeObjectURL(url);
       }
@@ -63,9 +64,12 @@ function AssetManifest({ assets }: { assets: UiAsset[] }) {
           <input aria-label="Asset manifest id" placeholder="id" style={{ width: 90 }} value={a.id} onChange={(e) => patch(i, { id: e.target.value })} />
           <input aria-label="Asset manifest src" placeholder="src (path)" style={{ width: 150 }} value={a.src ?? ""} onChange={(e) => patch(i, { src: e.target.value })} />
           <label className="btn" title="Import image as inline RGB565" style={{ cursor: "pointer" }}>img
-            <input type="file" accept="image/*" hidden onChange={(e) => importImage(i, e.target.files?.[0])} />
+            <input type="file" accept="image/*" hidden onChange={(e) => importImage(i, e.target.files?.[0], false)} />
           </label>
-          {a.data && <span className="muted">{a.w}×{a.h}</span>}
+          <label className="btn" title="Import image as inline RGB565 + alpha" style={{ cursor: "pointer" }}>imgα
+            <input type="file" accept="image/*" hidden onChange={(e) => importImage(i, e.target.files?.[0], true)} />
+          </label>
+          {a.data && <span className="muted">{a.w}×{a.h}{a.format === "rgb565a8" ? "α" : ""}</span>}
           <button className="btn" title="Remove asset" onClick={() => remove(i)}>×</button>
         </span>
       ))}

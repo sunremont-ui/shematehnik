@@ -31,6 +31,8 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-12-cross-track-align.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-13-flex-grow.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-14-asset-pipeline.md`
+  - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-15-asset-alpha.md`
+  - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-16-widget-visibility.md`
 
 ## Rules
 
@@ -49,7 +51,7 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
 5. Implement the smallest vertical slice.
 6. Promote validated decisions back to wiki/roadmap.
 
-Current slices: LVGL source notes, compatibility matrix, exact single-screen `ui.c/ui.h` golden baseline, `genLvglProject()` multi-screen baseline, UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src + missing-asset report), a binary RGB565 image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow` and same-screen `Panel` child parents are in place. Read `agent-handoff.md` for the latest continuation snapshot. Prefer a second image format, per-child flex shrink/self-align, nested/responsive layout work, richer action graph or LVGL v9 mode next unless a narrower fixture is requested.
+Current slices: LVGL source notes, compatibility matrix, exact single-screen `ui.c/ui.h` golden baseline, `genLvglProject()` multi-screen baseline, UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow` and same-screen `Panel` child parents are in place. Read `agent-handoff.md` for the latest continuation snapshot. Prefer LVGL v9 research, font/text style tokens, asset folder export, nested/responsive layout work or richer action graph next unless a narrower fixture is requested.
 
 ## Validation
 

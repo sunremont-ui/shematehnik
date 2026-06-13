@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 14 (binary RGB565 image asset pipeline) implemented and verified; commit it together with this handoff update.
+- Slices 15 (RGB565A8 alpha image format) and 16 (widget hidden flag + opacity) implemented and verified together; commit them with this handoff update.
+- Slice 14 (binary RGB565 image asset pipeline) committed as `73e3d64 feat(web): add LVGL binary RGB565 image asset pipeline`.
 - Slice 13 (per-child flex grow) committed as `c7a1e35 feat(web): add LVGL per-child flex grow`.
 - Slice 12 (Panel flex cross-axis + track align) committed as `40d7209 feat(web): add LVGL Panel flex cross-axis and track alignment`.
 - Slice 11 (Panel flex main-axis align) committed as `639c422 feat(web): add LVGL Panel flex main-axis alignment`.
@@ -18,7 +19,7 @@ Current lab state:
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
-- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report) with inline RGB565 `lv_img_dsc_t` pixels, Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
+- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report) with inline RGB565 + RGB565A8/alpha `lv_img_dsc_t` pixels, widget hidden/opacity, Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
 
 ## Current Working Files
 
@@ -53,7 +54,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 14:
+Latest full verification from slices 15/16:
 
 ```bash
 cd platform_app/web
@@ -66,7 +67,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Full Vitest: 17 files / 153 tests passed.
+- Full Vitest: 17 files / 157 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 
@@ -87,32 +88,30 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Good Next Slice Options
 
-Slices 10-14 are done: asset manifest with inline RGB565 pixels, full main/cross/track
-flex align and per-child flex grow. Flex primitives and a one-format asset pipeline are
-covered. Pick one small vertical slice, write a `slice-15-*.md` plan first, then implement.
+Slices 10-16 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
+hidden/opacity, full main/cross/track flex align and per-child flex grow. The v8 widget +
+layout + asset surface is now broad. The biggest open question is the LVGL v8/v9 boundary.
+Pick one small vertical slice, write a `slice-17-*.md` plan first, then implement.
 
-1. Second image format
-
-- Add `LV_IMG_CF_TRUE_COLOR_ALPHA` (ARGB / RGB565A8) on top of the slice-14 pipeline.
-- Keep one new format, deterministic output; reuse `genLvglImageAsset` shape.
-- Tests: alpha conversion fixture + descriptor `.header.cf` selection.
-
-2. Per-child flex shrink / self-align
-
-- Add a minimal `UiW.flexShrink` or per-child cross self-alignment.
-- Generator emits the matching LVGL call only when set.
-- Keep wrap/grid out of scope.
-- Tests: no-field output unchanged and one fixture.
-
-3. Minimal LVGL v9 research-only matrix update
+1. LVGL v9 research-only matrix update (recommended)
 
 - No code changes.
-- Re-check official LVGL current docs and record exact v9 constructor/screen/style/event differences.
-- Produce a candidate `slice-15-v9-mode.md` with acceptance criteria before implementation.
+- Re-check official LVGL v9 docs and record exact v9 constructor/screen/style/event/image
+  differences in `compatibility-matrix.md`.
+- Produce a candidate `slice-18-v9-mode.md` with acceptance criteria before any v9 codegen.
 
-Recommended next slice if the user asks to continue implementation: option 3 (LVGL v9
-research) -- the v8 primitives are now broad, so the biggest open question is the v8/v9
-boundary before adding more v8 surface.
+2. Font / text style tokens
+
+- Add a minimal `UiStyle.font` or text color/align on Label/Button.
+- Generator emits the matching `lv_obj_set_style_text_*` call only when set.
+- Tests: no-token output unchanged and one fixture.
+
+3. Asset folder / skeleton export
+
+- Bundle generated `ui.c/ui.h` plus declared inline assets into a downloadable set.
+- Keep it a zip/manifest list, no build files yet.
+
+Recommended next slice: option 1 (LVGL v9 research) before adding more v8 surface.
 
 ## Promotion Checklist For The Next Agent
 

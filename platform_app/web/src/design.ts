@@ -38,8 +38,9 @@ export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export interface UiStyle { bgColor?: string; radius?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
-export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
-export interface UiAsset { id: string; src?: string; w?: number; h?: number; format?: "rgb565"; data?: number[]; }
+export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; hidden?: boolean; opa?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
+export type UiAssetFormat = "rgb565" | "rgb565a8";
+export interface UiAsset { id: string; src?: string; w?: number; h?: number; format?: UiAssetFormat; data?: number[]; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
 export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: string; assets?: UiAsset[]; }
 export const UI_EVENT_CODES: UiEventCode[] = ["clicked", "value_changed"];
@@ -67,6 +68,8 @@ function normalizeUiDesign(raw: unknown): UiW[] | null {
     ...normalizeUiParent(w.parentId),
     ...normalizeUiAsset(w.assetId),
     ...normalizeUiFlexGrow(w.flexGrow),
+    ...(w.hidden === true ? { hidden: true } : {}),
+    ...normalizeUiOpa(w.opa),
     ...normalizeUiEvent(w.event),
     ...normalizeUiStyle(w.style),
     ...normalizeUiLayout(w.layout),
@@ -103,6 +106,12 @@ function normalizeUiFlexGrow(raw: unknown): { flexGrow?: number } {
   return Number.isFinite(grow) && grow >= 1 ? { flexGrow: Math.round(grow) } : {};
 }
 
+function normalizeUiOpa(raw: unknown): { opa?: number } {
+  const opa = Number(raw);
+  // 255 — значение по умолчанию (непрозрачно); храним только осмысленную прозрачность.
+  return Number.isFinite(opa) && opa >= 0 && opa < 255 ? { opa: Math.round(opa) } : {};
+}
+
 function normalizeUiAssets(raw: unknown): UiAsset[] {
   if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
@@ -115,8 +124,9 @@ function normalizeUiAssets(raw: unknown): UiAsset[] {
     const asset: UiAsset = src ? { id, src } : { id };
     const w = Math.round(Number(entry.w)), h = Math.round(Number(entry.h));
     const data = Array.isArray(entry.data) ? entry.data.map((n) => Number(n) & 0xFF) : null;
-    if (entry.format === "rgb565" && w >= 1 && h >= 1 && data && data.length === w * h * 2) {
-      asset.w = w; asset.h = h; asset.format = "rgb565"; asset.data = data;
+    const bpp = entry.format === "rgb565a8" ? 3 : entry.format === "rgb565" ? 2 : 0;
+    if (bpp && w >= 1 && h >= 1 && data && data.length === w * h * bpp) {
+      asset.w = w; asset.h = h; asset.format = entry.format as UiAssetFormat; asset.data = data;
     }
     assets.push(asset);
   }

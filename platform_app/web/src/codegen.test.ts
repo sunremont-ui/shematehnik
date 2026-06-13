@@ -139,6 +139,17 @@ describe("genLvgl", () => {
     expect(out.c).toContain("lv_obj_set_flex_align(ui_Panel_1, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_SPACE_EVENLY);");
   });
 
+  it("emits hidden flag and opacity only when set", () => {
+    const out = genLvgl([
+      { id: 1, type: "Button", x: 0, y: 0, w: 80, h: 30, text: "X", hidden: true, opa: 128 },
+      { id: 2, type: "Label", x: 0, y: 40, w: 80, h: 20, text: "Y" },
+    ], "main");
+    expect(out.c).toContain("lv_obj_add_flag(ui_Button_1, LV_OBJ_FLAG_HIDDEN);");
+    expect(out.c).toContain("lv_obj_set_style_opa(ui_Button_1, 128, LV_PART_MAIN | LV_STATE_DEFAULT);");
+    expect(out.c).not.toContain("lv_obj_add_flag(ui_Label_2");
+    expect(out.c).not.toContain("lv_obj_set_style_opa(ui_Label_2");
+  });
+
   it("emits per-child flex grow only when set", () => {
     const grown = genLvgl([
       { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "", layout: { kind: "flex_row" } },
@@ -343,6 +354,13 @@ describe("genLvglProject", () => {
   it("genLvglImageAsset returns null without valid pixel data", () => {
     expect(genLvglImageAsset({ id: "img_logo", src: "assets/logo.png" })).toBeNull();
     expect(genLvglImageAsset({ id: "img_bad", w: 2, h: 1, format: "rgb565", data: [1, 2] })).toBeNull();
+  });
+
+  it("emits TRUE_COLOR_ALPHA descriptor for an rgb565a8 asset", () => {
+    const dsc = genLvglImageAsset({ id: "img_a", w: 2, h: 1, format: "rgb565a8", data: [0x00, 0xF8, 0x80, 0x1F, 0x00, 0xFF] });
+    expect(dsc).toContain(".header.cf = LV_IMG_CF_TRUE_COLOR_ALPHA,");
+    expect(dsc).toContain(".data_size = 6,");
+    expect(dsc).toContain("0x00, 0xF8, 0x80, 0x1F, 0x00, 0xFF,");
   });
 
   it("warns about widget assets missing from a non-empty manifest", () => {

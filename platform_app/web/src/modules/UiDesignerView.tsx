@@ -143,6 +143,13 @@ export function UiDesignerView() {
             <div style={{ display: "grid", gap: 10 }}>
               <div className="tag">{selected.type}</div>
               <label className="field">Text<input value={selected.text} onChange={(e) => patch(selected.id, { text: e.target.value })} /></label>
+              <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <input type="checkbox" checked={!!selected.hidden} onChange={(e) => patch(selected.id, { hidden: e.target.checked || undefined })} />Hidden
+              </label>
+              <label className="field">Opacity
+                <input type="range" min={0} max={255} value={selected.opa ?? 255}
+                  onChange={(e) => patch(selected.id, { opa: +e.target.value >= 255 ? undefined : +e.target.value })} />
+              </label>
               {selected.type === "Image" && (
                 <label className="field">Asset id
                   <input value={selected.assetId ?? ""} placeholder="img_logo" onChange={(e) => setAssetId(selected, e.target.value)} />
