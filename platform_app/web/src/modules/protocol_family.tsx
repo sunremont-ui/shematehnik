@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { packet, type PacketField as Field } from "../design.ts";
+import { appendCapture, capture, clearCapture, packet, type PacketField as Field } from "../design.ts";
 import { genPacketStruct } from "../codegen.ts";
+import { crc16Ccitt, decodePackets, formatHexBytes, parseHexBytes } from "../decode.ts";
 import { downloadText } from "../util.ts";
 import { useSerial, serialOpen, serialClose, serialWrite, onSerialData, formatBytes } from "../serial.ts";
 
@@ -88,18 +89,19 @@ export function PacketView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["packet"];
   const fields = packet.use();
-  const setFields = (u: Field[] | ((f: Field[]) => Field[])) => packet.update(typeof u === "function" ? (u as (f: Field[]) => Field[]) : () => u);
+  const setFields = (u: Field[] | ((f: Field[]) => Field[])) => {
+    packet.update(typeof u === "function" ? (u as (f: Field[]) => Field[]) : () => u);
+    ucp.markModified();
+  };
   const nid = useRef(Math.max(0, ...fields.map((f) => f.id)) + 1);
   const total = fields.reduce((s, f) => s + f.bytes, 0);
-  const hex = fields.flatMap((f) => {
-    const bytes: string[] = [];
-    for (let i = f.bytes - 1; i >= 0; i--) bytes.push(((f.value >> (i * 8)) & 0xff).toString(16).toUpperCase().padStart(2, "0"));
-    return bytes;
-  });
+  const bytes = packetBytes(fields);
+  const hex = bytes.map((b) => b.toString(16).toUpperCase().padStart(2, "0"));
   return (
     <div>
       <PanelHead mod={mod} right={<>
         <span className="chip"><span className="dot ok" />{total} bytes</span>
+        <button className="btn" onClick={() => { appendCapture(bytes); ucp.setStatus(`Sent ${bytes.length} bytes to Analyzer capture`); }}>Send to Analyzer</button>
         <button className="btn primary" onClick={() => { downloadText("frame.h", genPacketStruct(fields), "text/x-c"); ucp.setStatus("Exported frame.h (#pragma pack struct)"); }}>Export C struct</button>
       </>} />
       <div className="grid cols2">
@@ -151,6 +153,7 @@ export function UartView() {
 
   const append = (dir: "RX" | "TX", bytes: ArrayLike<number>, fmt: "hex" | "ascii") => {
     const ts = new Date().toLocaleTimeString();
+    if (dir === "RX") appendCapture(bytes);
     setLines((l) => [...l.slice(-400), `[${ts}] ${dir}  ${formatBytes(bytes, fmt)}`]);
   };
 
@@ -229,30 +232,90 @@ export function UartView() {
 export function AnalyzerView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["analyzer"];
-  const [input, setInput] = useState("AA 03 00 04 1A 3F");
-  const bytes = (input.match(/[0-9a-fA-F]{2}/g) ?? []).map((h) => parseInt(h, 16));
-  const schema = [{ name: "header", n: 1 }, { name: "cmd", n: 1 }, { name: "length", n: 2 }, { name: "crc", n: 2 }];
-  let off = 0;
-  const decoded = schema.map((f) => {
-    const slice = bytes.slice(off, off + f.n); off += f.n;
-    const val = slice.reduce((s, b) => (s << 8) | b, 0);
-    return { ...f, hex: slice.map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" "), val };
-  });
+  const fields = packet.use();
+  const cap = capture.use();
+  const sample = useMemo(() => formatHexBytes(packetBytes(fields)), [fields]);
+  const [source, setSource] = useState<"capture" | "manual">("manual");
+  const [input, setInput] = useState("");
+  const bytes = source === "capture" ? cap : parseHexBytes(input || sample);
+  const decoded = useMemo(() => decodePackets(bytes, fields), [bytes, fields]);
+  const first = decoded.packets[0];
+  const fieldAt = new Map<number, number>();
+  if (first) {
+    let off = first.offset;
+    fields.forEach((f, i) => {
+      for (let n = 0; n < f.bytes; n++) fieldAt.set(off + n, i);
+      off += f.bytes;
+    });
+  }
   return (
     <div>
-      <PanelHead mod={mod} right={<button className="btn primary" onClick={() => ucp.setStatus(`Decoded ${bytes.length} bytes`)}>Decode</button>} />
+      <PanelHead mod={mod} right={<>
+        <span className="chip"><span className={`dot ${decoded.packets.length ? "ok" : "warn"}`} />{decoded.packets.length} packets</span>
+        <span className="chip"><span className="dot" />{bytes.length} bytes</span>
+        <button className="btn" onClick={() => { clearCapture(); ucp.setStatus("Analyzer capture cleared"); }}>Clear capture</button>
+        <button className="btn primary" onClick={() => ucp.setStatus(`Decoded ${decoded.packets.length} packet(s), garbage ${decoded.garbage.length}, remainder ${decoded.remainder.length}`)}>Decode</button>
+      </>} />
       <div className="grid cols2">
         <div className="card" style={{ display: "grid", gap: 10 }}>
-          <label className="field">Captured frame (hex)<textarea rows={4} value={input} onChange={(e) => setInput(e.target.value)} /></label>
-          <div className="muted">Дескриптор: header(1) cmd(1) length(2) crc(2)</div>
+          <label className="field">Source
+            <select value={source} onChange={(e) => setSource(e.target.value as "capture" | "manual")}>
+              <option value="manual">Manual hex</option>
+              <option value="capture">UART capture</option>
+            </select>
+          </label>
+          <label className="field">Manual hex
+            <textarea rows={4} value={input || sample} onChange={(e) => { setInput(e.target.value); setSource("manual"); }} />
+          </label>
+          <button className="btn" onClick={() => { setInput(sample); setSource("manual"); }}>Use Packet Editor sample</button>
+          <div className="muted">Дескриптор: {fields.map((f) => `${f.name}(${f.bytes})`).join(" ")}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {bytes.map((b, i) => {
+              const fi = fieldAt.get(i);
+              return <span key={i} className="kbd" style={{ background: fi == null ? undefined : FIELD_COLORS[fi % FIELD_COLORS.length], color: fi == null ? undefined : "#0d1117" }}>
+                {b.toString(16).toUpperCase().padStart(2, "0")}
+              </span>;
+            })}
+          </div>
         </div>
         <div className="card">
           <table className="tbl">
-            <thead><tr><th>Field</th><th>Bytes</th><th>Value</th></tr></thead>
-            <tbody>{decoded.map((d) => <tr key={d.name}><td>{d.name}</td><td><code>{d.hex || "—"}</code></td><td><code>{d.val} (0x{d.val.toString(16).toUpperCase()})</code></td></tr>)}</tbody>
+            <thead><tr><th>Offset</th><th>CRC</th><th>Fields</th></tr></thead>
+            <tbody>
+              {decoded.packets.map((p, i) => <tr key={i}>
+                <td><code>{p.offset}</code></td>
+                <td>{p.crcOk == null ? "—" : p.crcOk ? "OK" : "FAIL"}</td>
+                <td>{Object.entries(p.fields).map(([k, v], n) =>
+                  <span key={k} className="tag" style={{ marginRight: 4, background: FIELD_COLORS[n % FIELD_COLORS.length], color: "#0d1117" }}>{k}=0x{v.toString(16).toUpperCase()}</span>)}</td>
+              </tr>)}
+              {!decoded.packets.length && <tr><td colSpan={3} className="muted">Нет полного пакета.</td></tr>}
+            </tbody>
           </table>
+          {(decoded.garbage.length > 0 || decoded.remainder.length > 0) && (
+            <p className="muted" style={{ fontSize: 12 }}>
+              garbage: <code>{formatHexBytes(decoded.garbage) || "—"}</code><br />
+              remainder: <code>{formatHexBytes(decoded.remainder) || "—"}</code>
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+const FIELD_COLORS = ["#79c0ff", "#a5d6ff", "#7ee787", "#d2a8ff", "#ffa657", "#ff7b72"];
+
+function packetBytes(fields: Field[]): number[] {
+  const out: number[] = [];
+  let crcAt = -1;
+  fields.forEach((f) => {
+    if (/crc/i.test(f.name)) crcAt = out.length;
+    for (let i = f.bytes - 1; i >= 0; i--) out.push((f.value >> (i * 8)) & 0xff);
+  });
+  if (crcAt >= 0) {
+    const crc = crc16Ccitt(out.slice(0, crcAt));
+    const f = fields.find((x) => /crc/i.test(x.name));
+    if (f) for (let i = 0; i < f.bytes; i++) out[crcAt + i] = (crc >> ((f.bytes - 1 - i) * 8)) & 0xff;
+  }
+  return out;
 }

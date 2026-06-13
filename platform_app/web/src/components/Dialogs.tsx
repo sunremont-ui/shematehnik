@@ -30,7 +30,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
 
 const SHORTCUTS: [string, string][] = [
   ["New Project", "Ctrl+N"], ["Open Project", "Ctrl+O"], ["Save Project", "Ctrl+S"],
-  ["Toggle Module Tree", "Ctrl+\\"], ["Show Shortcuts", "Ctrl+/"],
+  ["Command Palette", "Ctrl+K"], ["Toggle Module Tree", "Ctrl+\\"], ["Show Shortcuts", "Ctrl+/"],
   ["Undo / Redo", "Ctrl+Z / Ctrl+Y"], ["Delete selected", "Del"], ["Cancel wire", "Esc"],
 ];
 

@@ -3,7 +3,8 @@
 // ============================================================
 import { createContext, useContext } from "react";
 import type { ModuleKind } from "./data/modules.ts";
-import type { PcbTrack, PinRef, SchComponent, UcpProject } from "./project.ts";
+import type { UserPart } from "./data/library.ts";
+import type { NetLabel, PcbTrack, PinRef, SchComponent, SchWire, UcpProject } from "./project.ts";
 
 export interface UcpState {
   projectName: string;
@@ -22,9 +23,14 @@ export interface UcpState {
 
   // --- Общая модель проекта (единый источник правды) ---
   project: UcpProject;
+  userParts: UserPart[];
+  addUserPart: (part: UserPart) => void;
+  importUserParts: (parts: UserPart[]) => void;
   addComponent: (kind: string, value: string, footprint?: string) => void;
   updateComponent: (id: string, patch: Partial<SchComponent>) => void;
   removeComponent: (id: string) => void;
+  removeComponents: (ids: string[]) => void;  // групповое удаление (+провода/метки/дорожки)
+  addItems: (items: { components: SchComponent[]; wires: SchWire[]; labels: NetLabel[] }) => void; // вставка из клипборда
   addWire: (from: PinRef, to: PinRef) => void;
   removeWire: (index: number) => void;
   setLabel: (ref: string, pin: string, net: string) => void;  // net="" → снять

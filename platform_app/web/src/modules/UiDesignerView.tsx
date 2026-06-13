@@ -1,9 +1,9 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { uiDesign, type UiW as W } from "../design.ts";
-import { genLvgl } from "../codegen.ts";
+import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, uiProject, type UiEventActionKind, type UiEventCode, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiW as W } from "../design.ts";
+import { genLvglProject } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
 const TYPES = ["Button", "Label", "Slider", "Switch", "Arc", "Chart", "Gauge", "Bar", "Panel", "Dropdown", "Checkbox", "Roller", "TextArea", "Image", "NavList"];
@@ -11,25 +11,63 @@ const TYPES = ["Button", "Label", "Slider", "Switch", "Arc", "Chart", "Gauge", "
 export function UiDesignerView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["ui"];
-  const widgets = uiDesign.use();
-  const setWidgets = (u: W[] | ((w: W[]) => W[])) => uiDesign.update(typeof u === "function" ? (u as (w: W[]) => W[]) : () => u);
+  const project = uiProject.use();
+  const [screenId, setScreenId] = useState(project.initialScreenId ?? project.screens[0]?.id ?? "main");
+  const screen = project.screens.find((s) => s.id === screenId) ?? project.screens[0] ?? { id: "main", widgets: [] };
+  const widgets = screen.widgets;
+  const setWidgets = (u: W[] | ((w: W[]) => W[])) => {
+    uiProject.update((p) => updateScreenWidgets(p, screen.id, typeof u === "function" ? (u as (w: W[]) => W[])(widgets) : u));
+  };
   const [sel, setSel] = useState<number | null>(1);
   const drag = useRef<{ id: number; dx: number; dy: number } | null>(null);
   const screenRef = useRef<HTMLDivElement>(null);
-  const nextId = useRef(Math.max(0, ...widgets.map((w) => w.id)) + 1);
+
+  useEffect(() => {
+    if (!project.screens.some((s) => s.id === screenId)) setScreenId(project.initialScreenId ?? project.screens[0]?.id ?? "main");
+  }, [project, screenId]);
 
   function exportC() {
-    const { c, h } = genLvgl(widgets, "main");
+    const { c, h } = genLvglProject(project);
     downloadText("ui.c", c, "text/x-c");
     downloadText("ui.h", h, "text/x-c");
-    ucp.setStatus(`Exported ui.c / ui.h — ${widgets.length} widgets (LVGL)`);
+    ucp.setStatus(`Exported ui.c / ui.h — ${project.screens.length} screens (LVGL)`);
   }
 
   function add(type: string) {
-    const id = nextId.current++;
+    const id = Math.max(0, ...widgets.map((w) => w.id)) + 1;
     setWidgets((w) => [...w, { id, type, x: 40, y: 40, w: type === "Label" ? 120 : 100, h: type === "Slider" ? 20 : 40, text: type }]);
     setSel(id);
     ucp.setStatus(`Added ${type}`); ucp.markModified();
+  }
+
+  function addScreen() {
+    const used = new Set(project.screens.map((s) => s.id));
+    let n = project.screens.length + 1;
+    let id = `screen_${n}`;
+    while (used.has(id)) id = `screen_${++n}`;
+    uiProject.update((p) => ({
+      ...p,
+      initialScreenId: p.initialScreenId ?? p.screens[0]?.id ?? id,
+      screens: [...p.screens, { id, title: `Screen ${n}`, widgets: [] }],
+    }));
+    setScreenId(id);
+    setSel(null);
+    ucp.setStatus(`Added ${id}`); ucp.markModified();
+  }
+
+  function removeScreen(id: string) {
+    if (project.screens.length <= 1) return;
+    const rest = project.screens.filter((s) => s.id !== id);
+    const nextId = project.initialScreenId === id ? rest[0].id : project.initialScreenId;
+    uiProject.update((p) => ({ ...p, screens: rest, initialScreenId: nextId }));
+    setScreenId(nextId ?? rest[0].id);
+    setSel(null);
+    ucp.setStatus(`Removed ${id}`); ucp.markModified();
+  }
+
+  function makeInitial(id: string) {
+    uiProject.update((p) => ({ ...p, initialScreenId: id }));
+    ucp.setStatus(`Initial screen: ${id}`); ucp.markModified();
   }
   function down(e: React.PointerEvent, w: W) {
     const r = screenRef.current!.getBoundingClientRect();
@@ -49,6 +87,14 @@ export function UiDesignerView() {
       <PanelHead mod={mod} right={<button className="btn primary" onClick={exportC}>Export C</button>} />
       <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 220px", gap: 12 }}>
         <div className="card" style={{ padding: 8, maxHeight: 460, overflow: "auto" }}>
+          <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>SCREENS</div>
+          {project.screens.map((s) => (
+            <button key={s.id} className={`btn${s.id === screen.id ? " primary" : ""}`} style={{ width: "100%", marginBottom: 4, padding: "4px 8px" }}
+              onClick={() => { setScreenId(s.id); setSel(null); }}>
+              {s.id === project.initialScreenId ? "* " : ""}{s.title ?? s.id}
+            </button>
+          ))}
+          <button className="btn" style={{ width: "100%", marginBottom: 10, padding: "4px 8px" }} onClick={addScreen}>+ Screen</button>
           <div className="muted" style={{ fontSize: 11, marginBottom: 6 }}>WIDGETS</div>
           {TYPES.map((t) => (
             <button key={t} className="btn" style={{ width: "100%", marginBottom: 4, padding: "4px 8px" }} onClick={() => add(t)}>{t}</button>
@@ -64,12 +110,13 @@ export function UiDesignerView() {
                   position: "absolute", left: w.x, top: w.y, width: w.w, height: w.h,
                   display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab",
                   fontSize: 12, color: "#e6edf3", userSelect: "none",
-                  borderRadius: w.type === "Arc" ? "50%" : 6,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", padding: "0 4px",
+                  borderRadius: w.style?.radius ?? (w.type === "Arc" ? "50%" : 6),
                   border: w.id === sel ? "2px solid var(--accent)" : "1px solid #444",
-                  background: w.type === "Button" ? "var(--accent)" : w.type === "Arc" ? "transparent" : "#161b22",
+                  background: w.style?.bgColor ?? (w.type === "Button" ? "var(--accent)" : w.type === "Arc" ? "transparent" : "#161b22"),
                   boxShadow: w.type === "Arc" ? "inset 0 0 0 4px var(--accent)" : "none",
                 }}>
-                {w.type === "Arc" ? "60°" : w.text}
+                {w.type === "Arc" ? "60°" : w.type === "Image" ? (w.assetId ? `img:${w.assetId}` : "Image") : w.text}
               </div>
             ))}
           </div>
@@ -80,16 +127,137 @@ export function UiDesignerView() {
             <div style={{ display: "grid", gap: 10 }}>
               <div className="tag">{selected.type}</div>
               <label className="field">Text<input value={selected.text} onChange={(e) => patch(selected.id, { text: e.target.value })} /></label>
+              {selected.type === "Image" && (
+                <label className="field">Asset id
+                  <input value={selected.assetId ?? ""} placeholder="img_logo" onChange={(e) => setAssetId(selected, e.target.value)} />
+                </label>
+              )}
+              {selected.type === "Panel" && (
+                <>
+                  <label className="field">Layout
+                    <select value={selected.layout?.kind ?? ""} onChange={(e) => setLayout(selected, e.target.value as UiLayoutKind | "")}>
+                      <option value="">None</option>
+                      {UI_LAYOUT_KINDS.map((kind) => <option key={kind} value={kind}>{layoutLabel(kind)}</option>)}
+                    </select>
+                  </label>
+                  <label className="field">Gap
+                    <input type="number" min={0} value={selected.layout?.gap ?? 0} disabled={!selected.layout}
+                      onChange={(e) => selected.layout && setLayout(selected, selected.layout.kind, +e.target.value)} />
+                  </label>
+                </>
+              )}
+              <label className="field">Fill
+                <input type="color" value={selected.style?.bgColor ?? "#1f6feb"} onChange={(e) => setStyle(selected, { bgColor: e.target.value })} />
+              </label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {UI_STYLE_SWATCHES.map((color) => (
+                  <button
+                    key={color}
+                    aria-label={`Swatch ${color}`}
+                    title={color}
+                    onClick={() => setStyle(selected, { bgColor: color })}
+                    style={{ width: 24, height: 24, borderRadius: 6, border: selected.style?.bgColor === color ? "2px solid var(--accent)" : "1px solid #444", background: color, padding: 0 }}
+                  />
+                ))}
+              </div>
+              <label className="field">Radius
+                <input type="number" min={0} value={selected.style?.radius ?? 0} onChange={(e) => setStyle(selected, { radius: +e.target.value })} />
+              </label>
+              <button className="btn" disabled={!selected.style} onClick={() => patch(selected.id, { style: undefined })}>Clear style</button>
+              <label className="field">Event
+                <select value={selected.event?.code ?? ""} onChange={(e) => setEvent(selected, e.target.value as UiEventCode | "")}>
+                  <option value="">None</option>
+                  {UI_EVENT_CODES.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+              <label className="field">Handler
+                <input
+                  value={selected.event?.handler ?? ""}
+                  disabled={!selected.event}
+                  onChange={(e) => selected.event && patch(selected.id, { event: { ...selected.event, handler: e.target.value } })}
+                  placeholder={suggestEventHandler(screen.id, selected)}
+                />
+              </label>
+              <label className="field">Action
+                <select
+                  value={selected.event?.action?.kind ?? ""}
+                  disabled={!selected.event}
+                  onChange={(e) => selected.event && setEventAction(selected, e.target.value as UiEventActionKind | "")}
+                >
+                  <option value="">None</option>
+                  {UI_EVENT_ACTION_KINDS.map((kind) => <option key={kind} value={kind}>{eventActionLabel(kind)}</option>)}
+                </select>
+              </label>
+              {selected.event?.action?.kind === "screen_load" && (
+                <label className="field">Target screen
+                  <select
+                    value={selected.event.action.targetScreenId}
+                    onChange={(e) => setEventAction(selected, "screen_load", e.target.value)}
+                  >
+                    {project.screens.map((s) => <option key={s.id} value={s.id}>{s.title ?? s.id}</option>)}
+                  </select>
+                </label>
+              )}
               <div style={{ display: "flex", gap: 8 }}>
                 <label className="field" style={{ flex: 1 }}>W<input type="number" value={selected.w} onChange={(e) => patch(selected.id, { w: +e.target.value })} /></label>
                 <label className="field" style={{ flex: 1 }}>H<input type="number" value={selected.h} onChange={(e) => patch(selected.id, { h: +e.target.value })} /></label>
               </div>
               <button className="btn" onClick={() => { setWidgets((ws) => ws.filter((w) => w.id !== selected.id)); setSel(null); ucp.markModified(); }}>Delete</button>
             </div>
-          ) : <p className="muted">Выберите виджет.</p>}
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              <div className="tag">{screen.title ?? screen.id}</div>
+              <label className="field">Screen id<input value={screen.id} disabled /></label>
+              <button className="btn" disabled={screen.id === project.initialScreenId} onClick={() => makeInitial(screen.id)}>Set initial</button>
+              <button className="btn" disabled={project.screens.length <= 1} onClick={() => removeScreen(screen.id)}>Delete screen</button>
+              <p className="muted" style={{ margin: 0 }}>Выберите виджет.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
   function patch(id: number, p: Partial<W>) { setWidgets((ws) => ws.map((w) => w.id === id ? { ...w, ...p } : w)); ucp.markModified(); }
+  function setStyle(w: W, style: NonNullable<W["style"]>) {
+    patch(w.id, { style: { ...(w.style ?? {}), ...style, ...(style.radius !== undefined ? { radius: Math.max(0, Math.round(style.radius)) } : {}) } });
+  }
+  function setEvent(w: W, code: UiEventCode | "") {
+    patch(w.id, code ? { event: { code, handler: w.event?.handler || suggestEventHandler(screen.id, w), ...(w.event?.action ? { action: w.event.action } : {}) } } : { event: undefined });
+  }
+  function setEventAction(w: W, kind: UiEventActionKind | "", targetScreenId = w.event?.action?.targetScreenId ?? defaultTargetScreen(project, screen.id)) {
+    if (!w.event) return;
+    patch(w.id, kind ? { event: { ...w.event, action: { kind, targetScreenId } } } : { event: { code: w.event.code, handler: w.event.handler } });
+  }
+  function setAssetId(w: W, raw: string) {
+    const assetId = raw.trim();
+    patch(w.id, { assetId: assetId || undefined });
+  }
+  function setLayout(w: W, kind: UiLayoutKind | "", gap = w.layout?.gap ?? 0) {
+    patch(w.id, kind ? { layout: { kind, gap: Math.max(0, Math.round(gap)) } } : { layout: undefined });
+  }
+}
+
+function updateScreenWidgets(project: UiProjectDesign, screenId: string, widgets: W[]): UiProjectDesign {
+  const screens: UiScreenDesign[] = project.screens.length ? project.screens : [{ id: screenId, widgets: [] }];
+  return {
+    ...project,
+    initialScreenId: project.initialScreenId ?? screens[0].id,
+    screens: screens.map((screen) => screen.id === screenId ? { ...screen, widgets } : screen),
+  };
+}
+
+function suggestEventHandler(screenId: string, w: W): string {
+  return `on_${screenId}_${w.type}_${w.id}`;
+}
+
+function layoutLabel(kind: UiLayoutKind): string {
+  return kind === "flex_row" ? "Flex row" : "Flex column";
+}
+
+function eventActionLabel(kind: UiEventActionKind): string {
+  return kind === "screen_load" ? "Load screen" : kind;
+}
+
+function defaultTargetScreen(project: UiProjectDesign, currentScreenId: string): string {
+  return project.screens.find((s) => s.id !== currentScreenId)?.id ?? project.screens[0]?.id ?? currentScreenId;
 }

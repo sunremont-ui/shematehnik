@@ -1,19 +1,38 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { UcpContext, type UcpState } from "./store.ts";
-import type { ModuleKind } from "./data/modules.ts";
+import { MODULE_INDEX, type ModuleKind } from "./data/modules.ts";
 import { MenuBar } from "./components/MenuBar.tsx";
 import { ModuleTree } from "./components/ModuleTree.tsx";
 import { Workspace } from "./components/Workspace.tsx";
 import { StatusBar } from "./components/StatusBar.tsx";
 import { AboutDialog, ShortcutsDialog } from "./components/Dialogs.tsx";
+import { CommandPalette } from "./components/CommandPalette.tsx";
 import { initCore } from "./core/ucpCore.ts";
 import {
   emptyProject, serialize, deserialize, importNetlist, importKicadSch, nextRef,
   type SchComponent, type UcpProject,
 } from "./project.ts";
+import {
+  importKicadSymLib, loadStoredUserParts, mergeUserParts, saveStoredUserParts,
+  setRuntimeUserParts, type UserPart,
+} from "./data/library.ts";
+import { fsm, packet, uiProject } from "./design.ts";
+import {
+  ensureHandlePermission, getRecentFileHandle, hasFileSystemAccess, listRecentFiles,
+  pickOpenHandle, pickSaveHandle, rememberRecentFile, writeHandle,
+  type FsFileHandle, type RecentFileMeta,
+} from "./fsAccess.ts";
 
 const LS_PROJECT = "ucp.project";
 const LS_THEME = "ucp.theme";
+
+const projectFileName = (name: string) =>
+  `${(name || "project").replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")}.ucp`;
+
+function moduleFromUrl(): ModuleKind | null {
+  const id = new URLSearchParams(window.location.search).get("module");
+  return id && id in MODULE_INDEX ? id as ModuleKind : null;
+}
 
 function loadStoredProject(): UcpProject {
   try {
@@ -24,20 +43,39 @@ function loadStoredProject(): UcpProject {
 }
 
 export function App() {
-  const [project, setProject] = useState<UcpProject>(loadStoredProject);
+  const initial = useRef<{ project: UcpProject; userParts: UserPart[] } | null>(null);
+  if (!initial.current) {
+    const project = loadStoredProject();
+    const userParts = mergeUserParts(loadStoredUserParts(), project.userParts ?? []);
+    setRuntimeUserParts(userParts);
+    initial.current = { project: { ...project, ...(userParts.length ? { userParts } : {}) }, userParts };
+  }
+  const [project, setProject] = useState<UcpProject>(initial.current.project);
+  const [userParts, setUserParts] = useState<UserPart[]>(initial.current.userParts);
   const [modified, setModified] = useState(false);
-  const [selected, setSelected] = useState<ModuleKind | null>(null);
+  const [selected, setSelected] = useState<ModuleKind | null>(() => moduleFromUrl());
   const [theme, setThemeState] = useState<"dark" | "light">(
     () => (localStorage.getItem(LS_THEME) === "light" ? "light" : "dark"));
   const [treeVisible, setTreeVisible] = useState(true);
+  const [recentFiles, setRecentFiles] = useState<RecentFileMeta[]>([]);
   const [status, setStatusState] = useState("New project created");
   const [dialog, setDialog] = useState<"about" | "shortcuts" | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const uiAutosave = uiProject.use();
+  const packetAutosave = packet.use();
+  const fsmAutosave = fsm.use();
   const clearTimer = useRef<number | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const fileHandle = useRef<FsFileHandle | null>(null);
   const firstRender = useRef(true);
 
   useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem(LS_THEME, theme); }, [theme]);
   useEffect(() => { void initCore(); }, []);
+  useEffect(() => { void listRecentFiles().then(setRecentFiles); }, []);
+  useEffect(() => {
+    setRuntimeUserParts(userParts);
+    saveStoredUserParts(userParts);
+  }, [userParts]);
 
   // Автосохранение проекта в localStorage (debounced) — переживает перезагрузку.
   useEffect(() => {
@@ -46,7 +84,7 @@ export function App() {
       try { localStorage.setItem(LS_PROJECT, serialize(project)); } catch { /* quota */ }
     }, 800);
     return () => window.clearTimeout(t);
-  }, [project]);
+  }, [project, uiAutosave, packetAutosave, fsmAutosave]);
 
   const setStatus = useCallback((msg: string) => {
     setStatusState(msg);
@@ -95,43 +133,118 @@ export function App() {
   }, [project, setStatus]);
 
   const newProject = useCallback(() => {
-    setProject(emptyProject()); setModified(false); setSelected(null);
+    fileHandle.current = null;
+    setProject({ ...emptyProject(), ...(userParts.length ? { userParts } : {}) }); setModified(false); setSelected(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("module");
+    window.history.replaceState(null, "", url);
     setStatus("New project created");
-  }, [setStatus]);
+  }, [setStatus, userParts]);
 
-  const saveProject = useCallback(() => {
-    const blob = new Blob([serialize(project)], { type: "application/json" });
+  const downloadProject = useCallback((text: string) => {
+    const blob = new Blob([text], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `${project.name}.ucp`;
+    a.href = url; a.download = projectFileName(project.name);
     a.click();
     URL.revokeObjectURL(url);
     setModified(false);
     setStatus(`Saved: ${project.name}.ucp`);
   }, [project, setStatus]);
 
-  const openFile = useCallback((file: File) => {
+  const saveProject = useCallback(async (saveAs = false) => {
+    const text = serialize(project);
+    if (!hasFileSystemAccess()) { downloadProject(text); return; }
+    try {
+      let handle = saveAs ? null : fileHandle.current;
+      if (!handle) handle = await pickSaveHandle(projectFileName(project.name));
+      if (!handle) return;
+      if (!await ensureHandlePermission(handle, "readwrite")) {
+        setStatus(`Save denied: ${handle.name}`);
+        return;
+      }
+      await writeHandle(handle, text);
+      fileHandle.current = handle;
+      setRecentFiles(await rememberRecentFile(handle));
+      setModified(false);
+      setStatus(`Saved: ${handle.name}`);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setStatus(`Save error: ${e instanceof Error ? e.message : e}`);
+    }
+  }, [downloadProject, project, setStatus]);
+
+  const openFile = useCallback((file: File, handle?: FsFileHandle | null) => {
     const base = file.name.replace(/\.[^.]+$/, "");
-    const kind = /\.net$/i.test(file.name) ? "net" : /\.kicad_sch$/i.test(file.name) ? "sch" : "ucp";
-    file.text().then((text) => {
+    const kind = /\.net$/i.test(file.name) ? "net" : /\.kicad_sch$/i.test(file.name) ? "sch" : /\.kicad_sym$/i.test(file.name) ? "sym" : "ucp";
+    file.text().then(async (text) => {
       try {
+        if (kind === "sym") {
+          const imported = importKicadSymLib(text, userParts);
+          const merged = mergeUserParts(userParts, imported);
+          setUserParts(merged);
+          setProject((p) => ({ ...p, ...(merged.length ? { userParts: merged } : {}) }));
+          setModified(true);
+          setStatus(`Imported ${imported.length} symbols from ${file.name}`);
+          return;
+        }
         const p = kind === "net" ? importNetlist(text, base)
           : kind === "sch" ? importKicadSch(text, base)
           : deserialize(text);
-        setProject(p); setModified(false);
+        const merged = mergeUserParts(userParts, p.userParts ?? []);
+        setUserParts(merged);
+        setRuntimeUserParts(merged);
+        fileHandle.current = kind === "ucp" ? handle ?? null : null;
+        if (kind === "ucp" && handle) setRecentFiles(await rememberRecentFile(handle));
+        setProject({ ...p, ...(merged.length ? { userParts: merged } : {}) }); setModified(false);
         const verb = kind === "ucp" ? "Opened" : "Imported";
         setStatus(`${verb}: ${file.name} (${p.components.length} comp, ${p.wires.length} wires)`);
       } catch {
-        setStatus(`Error: ${file.name} — invalid ${kind === "ucp" ? ".ucp" : kind === "net" ? "netlist" : ".kicad_sch"}`);
+        setStatus(`Error: ${file.name} — invalid ${kind === "ucp" ? ".ucp" : kind === "net" ? "netlist" : kind === "sym" ? ".kicad_sym" : ".kicad_sch"}`);
       }
     });
-  }, [setStatus]);
+  }, [setStatus, userParts]);
+
+  const openProject = useCallback(async () => {
+    if (!hasFileSystemAccess()) { fileInput.current?.click(); return; }
+    try {
+      const handle = await pickOpenHandle();
+      if (!handle) return;
+      if (!await ensureHandlePermission(handle, "read")) {
+        setStatus(`Open denied: ${handle.name}`);
+        return;
+      }
+      openFile(await handle.getFile(), handle);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setStatus(`Open error: ${e instanceof Error ? e.message : e}`);
+    }
+  }, [openFile, setStatus]);
+
+  const openRecentFile = useCallback(async (id: string) => {
+    const handle = await getRecentFileHandle(id);
+    if (!handle) { setStatus("Recent file is unavailable"); return; }
+    try {
+      if (!await ensureHandlePermission(handle, "read")) {
+        setStatus(`Open denied: ${handle.name}`);
+        return;
+      }
+      openFile(await handle.getFile(), handle);
+    } catch (e) {
+      setStatus(`Recent error: ${e instanceof Error ? e.message : e}`);
+    }
+  }, [openFile, setStatus]);
 
   const state: UcpState = {
     projectName: project.name,
     modified, selected, theme, treeVisible, status,
     setStatus,
-    select: (id) => setSelected(id),
+    select: (id) => {
+      setSelected(id);
+      const url = new URL(window.location.href);
+      url.searchParams.set("module", id);
+      window.history.replaceState(null, "", url);
+    },
     setTheme: setThemeState,
     toggleTree: () => setTreeVisible((v) => !v),
     newProject,
@@ -139,6 +252,21 @@ export function App() {
     markModified: () => setModified(true),
 
     project,
+    userParts,
+    addUserPart: (part) => {
+      const merged = mergeUserParts(userParts, [part]);
+      setUserParts(merged);
+      setProject((p) => ({ ...p, userParts: merged }));
+      setModified(true);
+      setStatus(`Library: added ${part.name}`);
+    },
+    importUserParts: (parts) => {
+      const merged = mergeUserParts(userParts, parts);
+      setUserParts(merged);
+      setProject((p) => ({ ...p, userParts: merged }));
+      setModified(true);
+      setStatus(`Library: imported ${parts.length} parts`);
+    },
     addComponent: (kind, value, footprint) => setProject((p) => {
       const ref = nextRef(p.components, kind);
       const comp: SchComponent = { id: `c${Date.now()}`, ref, kind, value, x: 120, y: 80, ...(footprint ? { footprint } : {}) };
@@ -155,6 +283,31 @@ export function App() {
         ...p,
         components: p.components.filter((c) => c.id !== id),
         wires: comp ? p.wires.filter((w) => w.from.ref !== comp.ref && w.to.ref !== comp.ref) : p.wires,
+      };
+    }),
+    removeComponents: (ids) => setProject((p) => {
+      const idSet = new Set(ids);
+      const refs = new Set(p.components.filter((c) => idSet.has(c.id)).map((c) => c.ref));
+      const refOfSig = (s: string) => s.split(".")[0];
+      setModified(true); setStatus(`Deleted ${refs.size} components`);
+      return {
+        ...p,
+        components: p.components.filter((c) => !idSet.has(c.id)),
+        wires: p.wires.filter((w) => !refs.has(w.from.ref) && !refs.has(w.to.ref)),
+        labels: p.labels.filter((l) => !refs.has(l.ref)),
+        tracks: p.tracks.filter((t) => {
+          const [a, b] = t.sig.split("-");
+          return !refs.has(refOfSig(a)) && !refs.has(refOfSig(b));
+        }),
+      };
+    }),
+    addItems: ({ components, wires, labels }) => setProject((p) => {
+      setModified(true); setStatus(`Pasted ${components.length} components`);
+      return {
+        ...p,
+        components: [...p.components, ...components],
+        wires: [...p.wires, ...wires],
+        labels: [...p.labels, ...labels],
       };
     }),
     addWire: (from, to) => setProject((p) => {
@@ -184,16 +337,17 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key.toLowerCase() === "n") { e.preventDefault(); newProject(); }
-      else if (e.ctrlKey && e.key.toLowerCase() === "s") { e.preventDefault(); saveProject(); }
-      else if (e.ctrlKey && e.key.toLowerCase() === "o") { e.preventDefault(); fileInput.current?.click(); }
+      else if (e.ctrlKey && e.key.toLowerCase() === "s") { e.preventDefault(); void saveProject(e.shiftKey); }
+      else if (e.ctrlKey && e.key.toLowerCase() === "o") { e.preventDefault(); void openProject(); }
       else if (e.ctrlKey && (e.key === "z" || e.key === "Z") && !e.shiftKey) { e.preventDefault(); undo(); }
       else if (e.ctrlKey && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) { e.preventDefault(); redo(); }
+      else if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); setPaletteOpen(true); }
       else if (e.ctrlKey && e.key === "\\") { e.preventDefault(); setTreeVisible((v) => !v); }
       else if (e.ctrlKey && e.key === "/") { e.preventDefault(); setDialog("shortcuts"); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [newProject, saveProject, undo, redo]);
+  }, [newProject, openProject, saveProject, undo, redo]);
 
   return (
     <UcpContext.Provider value={state}>
@@ -202,8 +356,11 @@ export function App() {
           onAbout={() => setDialog("about")}
           onShortcuts={() => setDialog("shortcuts")}
           onHelp={() => setStatus("Documentation: см. wiki/ в репозитории")}
-          onSave={saveProject}
-          onOpen={() => fileInput.current?.click()}
+          onSave={() => void saveProject(false)}
+          onSaveAs={() => void saveProject(true)}
+          onOpen={() => void openProject()}
+          recentFiles={recentFiles}
+          onRecentFile={(id) => void openRecentFile(id)}
         />
         <div className={`app-body${treeVisible ? "" : " tree-hidden"}`}>
           {treeVisible && <ModuleTree />}
@@ -212,10 +369,11 @@ export function App() {
         <StatusBar />
       </div>
       <input
-        ref={fileInput} type="file" accept=".ucp,.net,.kicad_sch,application/json" style={{ display: "none" }}
+        ref={fileInput} type="file" accept=".ucp,.net,.kicad_sch,.kicad_sym,application/json" style={{ display: "none" }}
         aria-label="Open .ucp project file"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) openFile(f); e.target.value = ""; }}
       />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       {dialog === "about" && <AboutDialog onClose={() => setDialog(null)} />}
       {dialog === "shortcuts" && <ShortcutsDialog onClose={() => setDialog(null)} />}
     </UcpContext.Provider>

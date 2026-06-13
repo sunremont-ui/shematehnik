@@ -4,6 +4,7 @@ import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
 import { useCoreBackend } from "../core/ucpCore.ts";
 import { computeNets, exportNetlist, exportBom } from "../project.ts";
+import { makeUserPart, type PinType } from "../data/library.ts";
 import { buildNodes, buildElements, nodeLabel, transient, acSweep, dcSolve, dcSweep, hasNonlinear, type Elem, type VSrc } from "../spice.ts";
 import { downloadText } from "../util.ts";
 
@@ -19,27 +20,47 @@ function EngineBadge({ backend }: { backend: string }) {
 // ============================================================
 // Symbol Editor — редактор УГО: символ + редактируемые пины
 // ============================================================
-interface Pin { id: number; name: string; num: string; side: "L" | "R"; }
+interface Pin { id: number; name: string; num: string; side: "L" | "R"; type: PinType; }
 
 export function SymbolEditorView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["symbol"];
   const [name, setName] = useState("OPAMP");
+  const [cat, setCat] = useState("User");
+  const [baseKind, setBaseKind] = useState<"R" | "C" | "L" | "D" | "Q" | "U">("U");
+  const [value, setValue] = useState("LM358");
+  const [footprint, setFootprint] = useState("SOIC-8");
   const [pins, setPins] = useState<Pin[]>([
-    { id: 1, name: "IN+", num: "3", side: "L" },
-    { id: 2, name: "IN-", num: "2", side: "L" },
-    { id: 3, name: "OUT", num: "6", side: "R" },
-    { id: 4, name: "VCC", num: "7", side: "R" },
+    { id: 1, name: "IN+", num: "3", side: "L", type: "in" },
+    { id: 2, name: "IN-", num: "2", side: "L", type: "in" },
+    { id: 3, name: "OUT", num: "6", side: "R", type: "out" },
+    { id: 4, name: "VCC", num: "7", side: "R", type: "power_in" },
   ]);
   const nid = useRef(5);
   const left = pins.filter((p) => p.side === "L");
   const right = pins.filter((p) => p.side === "R");
   const rows = Math.max(left.length, right.length, 1);
   const bodyH = rows * 28 + 20;
+  const save = () => {
+    const clean = pins.filter((p) => p.num.trim());
+    if (!name.trim() || !clean.length) { ucp.setStatus("Symbol needs name and pins"); return; }
+    const part = makeUserPart({
+      name: name.trim(),
+      cat: cat.trim() || "User",
+      baseKind,
+      value: value.trim() || name.trim(),
+      footprint: footprint.trim() || "Custom",
+      pins: clean.map((p) => ({ num: p.num.trim(), name: p.name.trim() || p.num.trim(), side: p.side, type: p.type })),
+    }, ucp.userParts);
+    ucp.addUserPart(part);
+  };
 
   return (
     <div>
-      <PanelHead mod={mod} right={<button className="btn primary" onClick={() => ucp.setStatus(`Saved symbol ${name} (${pins.length} pins)`)}>Save symbol</button>} />
+      <PanelHead mod={mod} right={<>
+        <span className="chip"><span className="dot ok" />{ucp.userParts.length} user parts</span>
+        <button className="btn primary" onClick={save}>Save to library</button>
+      </>} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 14 }}>
         <div className="card" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
           <svg width={360} height={bodyH + 60} style={{ background: "var(--base)" }}>
@@ -67,18 +88,32 @@ export function SymbolEditorView() {
         </div>
         <div className="card" style={{ display: "grid", gap: 10, alignContent: "start" }}>
           <label className="field">Symbol name<input value={name} onChange={(e) => setName(e.target.value)} /></label>
+          <label className="field">Category<input value={cat} onChange={(e) => setCat(e.target.value)} /></label>
+          <label className="field">Base kind
+            <select value={baseKind} onChange={(e) => setBaseKind(e.target.value as typeof baseKind)}>
+              <option value="R">R</option><option value="C">C</option><option value="L">L</option>
+              <option value="D">D</option><option value="Q">Q</option><option value="U">U</option>
+            </select>
+          </label>
+          <label className="field">Default value<input value={value} onChange={(e) => setValue(e.target.value)} /></label>
+          <label className="field">Footprint<input value={footprint} onChange={(e) => setFootprint(e.target.value)} /></label>
           <div className="muted" style={{ fontSize: 11 }}>PINS</div>
           {pins.map((p) => (
-            <div key={p.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <input style={{ width: 70 }} value={p.name} onChange={(e) => patch(p.id, { name: e.target.value })} />
-              <input style={{ width: 44 }} value={p.num} onChange={(e) => patch(p.id, { num: e.target.value })} />
+            <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 44px 44px 82px auto", gap: 6, alignItems: "center" }}>
+              <input value={p.name} onChange={(e) => patch(p.id, { name: e.target.value })} />
+              <input value={p.num} onChange={(e) => patch(p.id, { num: e.target.value })} />
               <select value={p.side} onChange={(e) => patch(p.id, { side: e.target.value as "L" | "R" })}>
                 <option value="L">L</option><option value="R">R</option>
+              </select>
+              <select value={p.type} onChange={(e) => patch(p.id, { type: e.target.value as PinType })}>
+                <option value="passive">passive</option><option value="in">in</option><option value="out">out</option>
+                <option value="power_in">pwr in</option><option value="power_out">pwr out</option>
               </select>
               <button className="btn" style={{ padding: "4px 8px" }} onClick={() => setPins((ps) => ps.filter((x) => x.id !== p.id))}>✕</button>
             </div>
           ))}
-          <button className="btn" onClick={() => setPins((ps) => [...ps, { id: nid.current++, name: "NEW", num: "0", side: "L" }])}>+ Add pin</button>
+          <button className="btn" onClick={() => setPins((ps) => [...ps, { id: nid.current++, name: "NEW", num: String(nid.current - 1), side: "L", type: "passive" }])}>+ Add pin</button>
+          <div className="muted" style={{ fontSize: 11 }}>Импорт .kicad_sym: File → Open…</div>
         </div>
       </div>
     </div>

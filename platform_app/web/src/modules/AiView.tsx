@@ -1,34 +1,38 @@
 import { useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
+import { demoAiSchematic, placeAiResult, requestAiSchematic } from "../ai.ts";
+import { getLibraryParts } from "../data/library.ts";
 import { PanelHead } from "./common.tsx";
+
+const LS_KEY = "ucp.claudeKey";
 
 export function AiView() {
   const ucp = useUcp();
   const mod = MODULE_INDEX["ai"];
   const [prompt, setPrompt] = useState("LED blinker on STM32 with current-limiting resistor");
+  const [key, setKey] = useState(() => localStorage.getItem(LS_KEY) || "");
   const [busy, setBusy] = useState(false);
   const [out, setOut] = useState<string>("");
 
-  function generate() {
+  async function generate() {
     setBusy(true); setOut("");
-    ucp.setStatus("POST api.anthropic.com/v1/messages (claude-sonnet-4-6)…");
-    setTimeout(() => {
+    try {
+      const parts = getLibraryParts(ucp.userParts);
+      const result = key.trim()
+        ? await requestAiSchematic(key.trim(), prompt, parts)
+        : demoAiSchematic();
+      const placed = placeAiResult(ucp.project, result);
+      ucp.addItems(placed);
+      ucp.select("schematic");
+      setOut(JSON.stringify(result, null, 2));
+      ucp.setStatus(`${key.trim() ? "ai.schematic.ready" : "demo schematic"} → placed ${placed.components.length} components, ${placed.wires.length} wires`);
+    } catch (e) {
+      setOut(String(e instanceof Error ? e.message : e));
+      ucp.setStatus("AI Schematic failed");
+    } finally {
       setBusy(false);
-      setOut(JSON.stringify({
-        components: [
-          { ref: "U1", type: "STM32F401", x: 0, y: 0 },
-          { ref: "R1", type: "Resistor", value: "330", x: 2, y: 0 },
-          { ref: "D1", type: "LED", value: "red", x: 4, y: 0 },
-        ],
-        wires: [
-          { from: { refdes: "U1", pin: "PA5" }, to: { refdes: "R1", pin: "1" } },
-          { from: { refdes: "R1", pin: "2" }, to: { refdes: "D1", pin: "A" } },
-          { from: { refdes: "D1", pin: "K" }, to: { refdes: "U1", pin: "GND" } },
-        ],
-      }, null, 2));
-      ucp.setStatus("ai.schematic.ready → placed 3 components, 3 wires");
-    }, 900);
+    }
   }
 
   return (
@@ -36,14 +40,20 @@ export function AiView() {
       <PanelHead mod={mod} />
       <div className="grid cols2">
         <div className="card" style={{ display: "grid", gap: 12 }}>
+          <label className="field">Claude API key
+            <input type="password" value={key} placeholder="sk-ant-…" onChange={(e) => {
+              setKey(e.target.value);
+              localStorage.setItem(LS_KEY, e.target.value);
+            }} />
+          </label>
           <label className="field">Describe the circuit
             <textarea rows={5} value={prompt} onChange={(e) => setPrompt(e.target.value)} />
           </label>
-          <div className="chip"><span className="dot ok" /> model: claude-sonnet-4-6</div>
-          <button className="btn primary" disabled={busy} onClick={generate}>{busy ? "Generating…" : "🤖 Generate schematic"}</button>
+          <div className="chip"><span className={`dot ${key.trim() ? "ok" : "warn"}`} />{key.trim() ? "model: claude-opus-4-8" : "demo (нет ключа)"}</div>
+          <button className="btn primary" disabled={busy} onClick={() => void generate()}>{busy ? "Generating…" : "Generate schematic"}</button>
           <p className="muted" style={{ fontSize: 12 }}>
-            API-ключ берётся из <code>UCP_CLAUDE_KEY</code>. Ответ публикуется в EventBus
-            <code> ai.schematic.ready</code> и размещается в Schematic Editor.
+            Ключ хранится локально в браузере (<code>localStorage</code>). Без ключа используется demo-ответ;
+            с ключом запрос идёт напрямую в Anthropic API с browser-access header.
           </p>
         </div>
         <div className="card" style={{ padding: 0 }}>

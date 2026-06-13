@@ -131,7 +131,7 @@ describe("дорожки в модели (.ucp round-trip)", () => {
     expect(r.board).toEqual({ w: 80, h: 60 });
     // дорожка на несуществующий провод и с 1 точкой — отбрасываются
     const bad = JSON.parse(serialize(p));
-    bad.tracks = [
+    bad.project.tracks = [
       { sig: "X1.1-Y1.1", layer: "F", points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] },
       { sig: "R1.2-C1.1", layer: "F", points: [{ x: 0, y: 0 }] },
     ];

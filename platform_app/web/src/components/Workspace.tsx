@@ -1,7 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useUcp } from "../store.ts";
-import { MODULE_COUNT, type ModuleKind } from "../data/modules.ts";
+import { MODULE_COUNT, MODULE_INDEX, type ModuleKind } from "../data/modules.ts";
 import { ModuleView } from "../modules/index.tsx";
+import { ModuleErrorBoundary } from "./ModuleErrorBoundary.tsx";
 
 // Keep-alive как QStackedWidget: однажды открытый модуль остаётся
 // смонтированным (его локальное состояние переживает переключение вкладок),
@@ -24,11 +25,16 @@ export function Workspace() {
           <p className="muted">Schematic · PCB · 3D · PID · Protocol · CodeGen · UI Designer · AI · OTA</p>
         </div>
       )}
-      {[...visited.current].map((id) => (
-        <KeepAlive key={id} visible={id === ucp.selected}>
-          <ModuleView id={id} />
-        </KeepAlive>
-      ))}
+      {[...visited.current].map((id) => {
+        const mod = MODULE_INDEX[id];
+        return (
+          <KeepAlive key={id} visible={id === ucp.selected}>
+            <ModuleErrorBoundary moduleName={mod.name} onError={(msg) => ucp.setStatus(`Module error: ${msg}`)}>
+              <ModuleView id={id} />
+            </ModuleErrorBoundary>
+          </KeepAlive>
+        );
+      })}
     </div>
   );
 }

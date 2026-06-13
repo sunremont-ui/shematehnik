@@ -1,5 +1,22 @@
-import { describe, it, expect } from "vitest";
-import { emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist, importNetlist, importKicadSch, exportBom, pinOffset } from "./project.ts";
+import { afterEach, describe, it, expect } from "vitest";
+import {
+  emptyProject, serialize, deserialize, nextRef, runDrc, computeNets, exportNetlist,
+  importNetlist, importKicadSch, exportBom, pinOffset,
+  findJunctions, runErc, buildClipboard, pasteClipboard,
+} from "./project.ts";
+import { fsm, packet, uiDesign, uiProject, type UiProjectDesign } from "./design.ts";
+
+const DEFAULT_UI = uiDesign.snapshot();
+const DEFAULT_UI_PROJECT = uiProject.snapshot();
+const DEFAULT_PACKET = packet.snapshot();
+const DEFAULT_FSM = fsm.snapshot();
+
+afterEach(() => {
+  uiProject.restore(DEFAULT_UI_PROJECT);
+  uiDesign.restore(DEFAULT_UI);
+  packet.restore(DEFAULT_PACKET);
+  fsm.restore(DEFAULT_FSM);
+});
 
 describe("project serialize/deserialize", () => {
   it("round-trips an empty project", () => {
@@ -23,6 +40,118 @@ describe("project serialize/deserialize", () => {
     const p = emptyProject();
     p.wires.push({ from: { ref: "C1", pin: "2" }, to: { ref: "U1", pin: "1" } });
     expect(deserialize(serialize(p)).wires).toEqual(p.wires);
+  });
+
+  it("writes .ucp v2 with design stores and restores them", () => {
+    const widgets = [{ id: 11, type: "Image", x: 7, y: 8, w: 90, h: 40, text: "Dry", assetId: "img_dryer" }];
+    const fields = [
+      { id: 21, name: "header", bytes: 1, value: 0xA5 },
+      { id: 22, name: "temp", bytes: 2, value: 60 },
+    ];
+    const machine = {
+      name: "DryerLab",
+      initial: "idle",
+      states: [
+        { id: "idle", name: "IDLE", x: 120, y: 120 },
+        { id: "heat", name: "HEAT", x: 280, y: 120, entry: "heater_on();" },
+      ],
+      transitions: [{ from: "idle", to: "heat", event: "START" }],
+    };
+    uiDesign.restore(widgets);
+    packet.restore(fields);
+    fsm.restore(machine);
+
+    const text = serialize(emptyProject("Design Bundle"));
+    const file = JSON.parse(text);
+    expect(file.version).toBe(2);
+    expect(file.project.name).toBe("Design Bundle");
+    expect(file.design.uiDesign).toEqual(widgets);
+    expect(file.design.uiProject.screens[0].widgets).toEqual(widgets);
+    expect(file.design.packet).toEqual(fields);
+    expect(file.design.fsm.name).toBe("DryerLab");
+
+    uiProject.restore({ initialScreenId: "main", screens: [{ id: "main", widgets: [] }] });
+    uiDesign.restore([]);
+    packet.restore([]);
+    fsm.restore({ name: "Blank", initial: "", states: [], transitions: [] });
+    const project = deserialize(text);
+    expect(project.name).toBe("Design Bundle");
+    expect(uiDesign.get()).toEqual(widgets);
+    expect(uiProject.get().screens[0].widgets).toEqual(widgets);
+    expect(packet.get()).toEqual(fields);
+    expect(fsm.get()).toEqual(machine);
+  });
+
+  it("round-trips multi-screen UI project state in .ucp v2", () => {
+    const multi: UiProjectDesign = {
+      initialScreenId: "main",
+      screens: [
+        { id: "main", title: "Main", widgets: [{ id: 1, type: "Label", x: 1, y: 2, w: 80, h: 24, text: "Home" }] },
+        {
+          id: "settings",
+          title: "Settings",
+          widgets: [
+            {
+              id: 1,
+              type: "Image",
+              x: 5,
+              y: 6,
+              w: 90,
+              h: 32,
+              text: "Back",
+              assetId: "img_settings",
+              event: { code: "clicked", handler: "on_settings_back", action: { kind: "screen_load", targetScreenId: "main" } },
+              style: { bgColor: "#1f6feb", radius: 8 },
+            },
+            { id: 2, type: "Panel", x: 8, y: 44, w: 120, h: 48, text: "", layout: { kind: "flex_row", gap: 5 } },
+          ],
+        },
+      ],
+    };
+    uiProject.restore(multi);
+
+    const text = serialize(emptyProject("Screen Bundle"));
+    const file = JSON.parse(text);
+    expect(file.design.uiProject).toEqual(multi);
+
+    uiProject.restore({ initialScreenId: "main", screens: [{ id: "main", widgets: [] }] });
+    deserialize(text);
+    expect(uiProject.get()).toEqual(multi);
+    expect(uiDesign.get()).toEqual(multi.screens[0].widgets);
+  });
+
+  it("migrates legacy .ucp v2 uiDesign into a single-screen uiProject", () => {
+    const widgets = [{ id: 9, type: "Image", x: 2, y: 3, w: 44, h: 22, text: "Legacy UI", assetId: "img_legacy" }];
+    const text = JSON.stringify({
+      version: 2,
+      project: emptyProject("Legacy UI Bundle"),
+      design: { uiDesign: widgets },
+    });
+
+    uiProject.restore({ initialScreenId: "main", screens: [{ id: "main", widgets: [] }] });
+    uiDesign.restore([]);
+    deserialize(text);
+
+    expect(uiDesign.get()).toEqual(widgets);
+    expect(uiProject.get()).toEqual({
+      initialScreenId: "main",
+      screens: [{ id: "main", title: "Main", widgets }],
+    });
+  });
+
+  it("opens legacy .ucp v1 without touching design stores", () => {
+    const widgets = [{ id: 3, type: "Label", x: 1, y: 2, w: 30, h: 12, text: "keep" }];
+    const fields = [{ id: 7, name: "cmd", bytes: 1, value: 3 }];
+    const machine = { name: "Keep", initial: "s", states: [{ id: "s", name: "S", x: 1, y: 1 }], transitions: [] };
+    uiDesign.restore(widgets);
+    packet.restore(fields);
+    fsm.restore(machine);
+
+    const project = deserialize('{"name":"Legacy","components":[{"ref":"R5"}]}');
+    expect(project.name).toBe("Legacy");
+    expect(uiDesign.get()).toEqual(widgets);
+    expect(packet.get()).toEqual(fields);
+    expect(fsm.get()).toEqual(machine);
   });
 
   it("drops wires referencing missing components", () => {
@@ -148,5 +277,68 @@ describe("nextRef", () => {
     expect(nextRef(comps, "R")).toBe("R2");
     expect(nextRef(comps, "C")).toBe("C2");
     expect(nextRef(comps, "L")).toBe("L1");
+  });
+});
+
+describe("findJunctions (фаза 13)", () => {
+  it("T-соединение: вывод в ≥2 проводах — junction, прямой провод — нет", () => {
+    const p = emptyProject(); // wire R1.2-C1.1
+    expect(findJunctions(p)).toEqual([]);
+    p.wires.push({ from: { ref: "C1", pin: "1" }, to: { ref: "U1", pin: "1" } });
+    expect(findJunctions(p)).toEqual([{ ref: "C1", pin: "1" }]);
+  });
+});
+
+describe("runErc: типы пинов (фаза 13)", () => {
+  it("два выхода U в одной цепи → конфликт", () => {
+    const p = emptyProject();
+    p.components.push({ id: "u2", ref: "U2", kind: "U", value: "ATmega328P", x: 0, y: 0 });
+    // U1.4 (out) — U2.4 (out)
+    p.wires.push({ from: { ref: "U1", pin: "4" }, to: { ref: "U2", pin: "4" } });
+    const r = runErc(p);
+    expect(r.conflicts).toHaveLength(1);
+    expect(r.conflicts[0].pins.sort()).toEqual(["U1.4", "U2.4"]);
+  });
+  it("вход + выход → чисто", () => {
+    const p = emptyProject();
+    p.components.push({ id: "u2", ref: "U2", kind: "U", value: "ATmega328P", x: 0, y: 0 });
+    p.wires.push({ from: { ref: "U1", pin: "4" }, to: { ref: "U2", pin: "2" } }); // out → in
+    expect(runErc(p).conflicts).toHaveLength(0);
+  });
+  it("power_in: цепь с меткой VCC запитана, без метки — нет", () => {
+    const p = emptyProject();
+    p.wires.push({ from: { ref: "U1", pin: "1" }, to: { ref: "R1", pin: "1" } }); // VCC-пин к резистору
+    expect(runErc(p).unpowered).toContain("U1.1");
+    p.labels.push({ ref: "U1", pin: "1", net: "VCC" });
+    expect(runErc(p).unpowered).not.toContain("U1.1");
+  });
+  it("выход LDO (power_out) запитывает цепь без метки", () => {
+    const p = emptyProject();
+    p.components.push({ id: "ldo", ref: "U2", kind: "U", value: "AMS1117-3.3", x: 0, y: 0 });
+    p.wires.push({ from: { ref: "U2", pin: "4" }, to: { ref: "U1", pin: "1" } }); // LDO out → MCU VCC
+    expect(runErc(p).unpowered).not.toContain("U1.1");
+  });
+});
+
+describe("clipboard: copy/paste (фаза 13)", () => {
+  it("вставка переименовывает refs и перенаправляет провода/метки", () => {
+    const p = emptyProject();   // R1, C1, U1; wire R1.2-C1.1
+    p.labels.push({ ref: "R1", pin: "1", net: "VCC" });
+    const clip = buildClipboard(p, new Set(["R1", "C1"]));
+    expect(clip.components.map((c) => c.ref).sort()).toEqual(["C1", "R1"]);
+    expect(clip.wires).toHaveLength(1);   // внутренний провод
+    expect(clip.labels).toHaveLength(1);
+    const pasted = pasteClipboard(p, clip, 40);
+    expect(pasted.components.map((c) => c.ref).sort()).toEqual(["C2", "R2"]);
+    expect(pasted.wires).toEqual([{ from: { ref: "R2", pin: "2" }, to: { ref: "C2", pin: "1" } }]);
+    expect(pasted.labels).toEqual([{ ref: "R2", pin: "1", net: "VCC" }]);
+    // id уникальны, позиции смещены
+    expect(new Set(pasted.components.map((c) => c.id)).size).toBe(2);
+    expect(pasted.components[0].x).toBe(p.components[0].x + 40);
+  });
+  it("провод наружу выделения не копируется", () => {
+    const p = emptyProject();
+    const clip = buildClipboard(p, new Set(["R1"]));   // провод R1.2-C1.1 наружу
+    expect(clip.wires).toHaveLength(0);
   });
 });

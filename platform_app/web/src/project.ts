@@ -3,6 +3,11 @@
 // Формат .ucp (JSON) — упрощённый порт core/project.cpp десктопа.
 // Schematic редактирует, Netlist/PCB/SPICE читают (поток данных).
 // ============================================================
+import {
+  customPinOffset, customPinsOf, normalizeUserParts, pinTypesOf, refPrefixOfKind,
+  type PinType, type UserPart,
+} from "./data/library.ts";
+import { restoreDesign, snapshotDesign, type DesignSnapshot } from "./design.ts";
 
 export interface SchComponent {
   id: string;
@@ -31,6 +36,13 @@ export interface UcpProject {
   labels: NetLabel[];
   tracks: PcbTrack[];
   board?: { w: number; h: number };   // размер платы, мм
+  userParts?: UserPart[];             // пользовательские символы проекта
+}
+
+export interface UcpFileV2 {
+  version: 2;
+  project: UcpProject;
+  design: DesignSnapshot;
 }
 
 export function emptyProject(name = "Untitled Project"): UcpProject {
@@ -51,14 +63,32 @@ export function emptyProject(name = "Untitled Project"): UcpProject {
 }
 
 export function serialize(p: UcpProject): string {
-  return JSON.stringify(p, null, 2);
+  const file: UcpFileV2 = {
+    version: 2,
+    project: p,
+    design: snapshotDesign(),
+  };
+  return JSON.stringify(file, null, 2);
 }
 
 export function deserialize(json: string): UcpProject {
-  const raw = JSON.parse(json) as Partial<UcpProject>;
-  if (!raw || typeof raw !== "object" || !Array.isArray(raw.components))
+  const raw = JSON.parse(json) as unknown;
+  if (isRecord(raw) && raw.version === 2 && isRecord(raw.project)) {
+    restoreDesign(raw.design);
+    return deserializeProject(raw.project);
+  }
+  return deserializeProject(raw);
+}
+
+function isRecord(raw: unknown): raw is Record<string, unknown> {
+  return !!raw && typeof raw === "object" && !Array.isArray(raw);
+}
+
+function deserializeProject(raw: unknown): UcpProject {
+  const data = raw as Partial<UcpProject>;
+  if (!data || typeof data !== "object" || !Array.isArray(data.components))
     throw new Error("Invalid .ucp file");
-  const components = raw.components.map((c, i) => {
+  const components = data.components.map((c, i) => {
     const rot = ((Number(c.rot) || 0) % 360 + 360) % 360;
     return {
       id: c.id ?? `c${i}`,
@@ -72,10 +102,10 @@ export function deserialize(json: string): UcpProject {
     };
   });
   const refs = new Set(components.map((c) => c.ref));
-  const wires = (Array.isArray(raw.wires) ? raw.wires : [])
+  const wires = (Array.isArray(data.wires) ? data.wires : [])
     .filter((w): w is SchWire => !!w && !!w.from && !!w.to && refs.has(w.from.ref) && refs.has(w.to.ref))
     .map((w) => ({ from: { ref: w.from.ref, pin: String(w.from.pin) }, to: { ref: w.to.ref, pin: String(w.to.pin) } }));
-  const labels = (Array.isArray(raw.labels) ? raw.labels : [])
+  const labels = (Array.isArray(data.labels) ? data.labels : [])
     .filter((l): l is NetLabel => !!l && refs.has(l.ref) && !!l.net)
     .map((l) => ({ ref: l.ref, pin: String(l.pin), net: String(l.net) }));
   // дорожки: сигнатура провода должна существовать, ≥2 валидных точек
@@ -83,27 +113,32 @@ export function deserialize(json: string): UcpProject {
     `${w.from.ref}.${w.from.pin}-${w.to.ref}.${w.to.pin}`,
     `${w.to.ref}.${w.to.pin}-${w.from.ref}.${w.from.pin}`,
   ]));
-  const tracks = (Array.isArray(raw.tracks) ? raw.tracks : [])
+  const tracks = (Array.isArray(data.tracks) ? data.tracks : [])
     .filter((t): t is PcbTrack => !!t && typeof t.sig === "string" && wireSigs.has(t.sig)
       && (t.layer === "F" || t.layer === "B") && Array.isArray(t.points) && t.points.length >= 2)
     .map((t) => ({ sig: t.sig, layer: t.layer, points: t.points.map((p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) }));
-  const bw = Number(raw.board?.w), bh = Number(raw.board?.h);
+  const bw = Number(data.board?.w), bh = Number(data.board?.h);
+  const userParts = normalizeUserParts(data.userParts);
   return {
     version: 1,
-    name: typeof raw.name === "string" ? raw.name : "Untitled Project",
+    name: typeof data.name === "string" ? data.name : "Untitled Project",
     components,
     wires,
     labels,
     tracks,
     ...(bw > 0 && bh > 0 ? { board: { w: bw, h: bh } } : {}),
+    ...(userParts.length ? { userParts } : {}),
   };
 }
 
 // Список выводов компонента по типу. U — 6 выводов (3+3),
 // Q — 3 (1=База/Затвор, 2=Коллектор/Сток, 3=Эмиттер/Исток), остальные — 2.
 export function pinsOf(kind: string): string[] {
-  if (kind === "U") return ["1", "2", "3", "4", "5", "6"];
-  if (kind === "Q") return ["1", "2", "3"];
+  const custom = customPinsOf(kind);
+  if (custom) return custom;
+  const base = refPrefixOfKind(kind);
+  if (base === "U") return ["1", "2", "3", "4", "5", "6"];
+  if (base === "Q") return ["1", "2", "3"];
   return ["1", "2"];
 }
 
@@ -112,6 +147,8 @@ export function pinsOf(kind: string): string[] {
 // U: 3 слева (1-3), 3 справа (4-6).
 // rot — поворот символа (градусы), вращает смещение вокруг центра.
 export function pinOffset(kind: string, pin: string, rot = 0): { dx: number; dy: number } {
+  const custom = customPinOffset(kind, pin, rot);
+  if (custom) return custom;
   const pins = pinsOf(kind);
   const base = pins.length === 2
     ? { dx: pin === "1" ? -24 : 24, dy: 0 }
@@ -207,7 +244,7 @@ export function exportNetlist(p: UcpProject): string {
 export function exportBom(p: UcpProject): string {
   const groups = new Map<string, { kind: string; value: string; footprint: string; refs: string[] }>();
   for (const c of p.components) {
-    const key = `${c.kind} ${c.value}`;
+    const key = `${c.kind}|${c.value}`;
     const g = groups.get(key) ?? groups.set(key, { kind: c.kind, value: c.value, footprint: c.footprint ?? "", refs: [] }).get(key)!;
     g.refs.push(c.ref);
   }
@@ -379,12 +416,89 @@ export function importKicadSch(text: string, name = "KiCad import"): UcpProject 
 
 // Следующий refdes для типа (R1→R2…), исходя из уже занятых.
 export function nextRef(components: SchComponent[], kind: string): string {
+  const prefix = refPrefixOfKind(kind);
   let max = 0;
   for (const c of components) {
-    if (c.kind === kind) {
-      const n = parseInt(c.ref.slice(kind.length), 10);
+    if (c.ref.startsWith(prefix)) {
+      const n = parseInt(c.ref.slice(prefix.length), 10);
       if (Number.isFinite(n)) max = Math.max(max, n);
     }
   }
-  return `${kind}${max + 1}`;
+  return `${prefix}${max + 1}`;
+}
+
+// ---------- Junction dots: выводы, где сходятся ≥2 провода ----------
+export function findJunctions(p: UcpProject): PinRef[] {
+  const count = new Map<string, number>();
+  for (const w of p.wires) for (const e of [w.from, w.to]) {
+    const k = `${e.ref}.${e.pin}`;
+    count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  const out: PinRef[] = [];
+  for (const [k, n] of count) {
+    if (n < 2) continue;
+    const i = k.indexOf(".");
+    out.push({ ref: k.slice(0, i), pin: k.slice(i + 1) });
+  }
+  return out;
+}
+
+// ---------- ERC по типам выводов (см. pinTypesOf в data/library.ts) ----------
+export interface ErcResult {
+  conflicts: { net: string; pins: string[] }[];  // ≥2 выходов в одной цепи
+  unpowered: string[];                           // power_in без питания в цепи
+}
+// Цепь считается запитанной, если названа как шина питания (метка)
+// или содержит вывод power_out (например, выход LDO).
+const POWER_NET = /^(vcc|vdd|vss|gnd|[+-]?\d+(\.\d+)?\s?v\d*|\d+v\d+)$/i;
+
+export function runErc(p: UcpProject): ErcResult {
+  const typeOf = new Map<string, PinType>();
+  for (const c of p.components) {
+    const tt = pinTypesOf(c.kind, c.value);
+    for (const pin of pinsOf(c.kind)) typeOf.set(`${c.ref}.${pin}`, tt[pin] ?? "passive");
+  }
+  const conflicts: ErcResult["conflicts"] = [];
+  const unpowered: string[] = [];
+  for (const net of computeNets(p)) {
+    const outs = net.pins.filter((s) => typeOf.get(s) === "out");
+    if (outs.length >= 2) conflicts.push({ net: net.name, pins: outs });
+    const powered = POWER_NET.test(net.name) || net.pins.some((s) => typeOf.get(s) === "power_out");
+    if (!powered) for (const s of net.pins) if (typeOf.get(s) === "power_in") unpowered.push(s);
+  }
+  return { conflicts, unpowered };
+}
+
+// ---------- Клипборд схемы: копия выделения + вставка с переименованием ----------
+export interface SchClipboard { components: SchComponent[]; wires: SchWire[]; labels: NetLabel[]; }
+
+// Снимок выделенных компонентов + проводов/меток строго внутри выделения.
+export function buildClipboard(p: UcpProject, refs: Set<string>): SchClipboard {
+  return {
+    components: p.components.filter((c) => refs.has(c.ref)).map((c) => ({ ...c })),
+    wires: p.wires.filter((w) => refs.has(w.from.ref) && refs.has(w.to.ref))
+      .map((w) => ({ from: { ...w.from }, to: { ...w.to } })),
+    labels: p.labels.filter((l) => refs.has(l.ref)).map((l) => ({ ...l })),
+  };
+}
+
+// Переименовывает refs против текущего проекта (nextRef), перенаправляет
+// провода/метки на новые refs, смещает позиции.
+export function pasteClipboard(p: UcpProject, clip: SchClipboard, offset = 40): SchClipboard {
+  const existing = [...p.components];
+  const map = new Map<string, string>();
+  let uid = Date.now();
+  const components = clip.components.map((c) => {
+    const ref = nextRef(existing, c.kind);
+    const copy = { ...c, id: `c${uid++}`, ref, x: c.x + offset, y: c.y + offset };
+    existing.push(copy);
+    map.set(c.ref, ref);
+    return copy;
+  });
+  const wires = clip.wires.map((w) => ({
+    from: { ref: map.get(w.from.ref)!, pin: w.from.pin },
+    to: { ref: map.get(w.to.ref)!, pin: w.to.pin },
+  }));
+  const labels = clip.labels.map((l) => ({ ...l, ref: map.get(l.ref)! }));
+  return { components, wires, labels };
 }

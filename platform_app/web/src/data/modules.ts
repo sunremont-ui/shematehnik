@@ -5,11 +5,11 @@
 // ============================================================
 
 export type ModuleKind =
-  | "schematic" | "symbol" | "wire" | "netlist" | "spice"
+  | "schematic" | "symbol" | "wire" | "netlist" | "spice" | "filter"
   | "pcb" | "threed" | "part"
   | "pid" | "programs"
-  | "protocol" | "sequence" | "packet" | "uart" | "analyzer"
-  | "codegen" | "crc" | "lvgl" | "arduino" | "protocodegen"
+  | "protocol" | "sequence" | "packet" | "uart" | "analyzer" | "logic"
+  | "codegen" | "crc" | "lvgl" | "arduino" | "protocodegen" | "pinplanner" | "eecalc" | "powerbudget" | "regmap"
   | "ui" | "ai" | "ota" | "firmproj" | "agent";
 
 export interface ModuleDef {
@@ -30,6 +30,7 @@ export const MODULE_TREE: ModuleDef[] = [
       { id: "wire",    name: "Wire Tool",     title: "Wire Tool",     icon: "〰️", blurb: "Инструмент ортогональной разводки проводов и шин." },
       { id: "netlist", name: "Netlist",       title: "Netlist",       icon: "🕸️", blurb: "Список цепей: связи pin↔pin, экспорт для SPICE и PCB." },
       { id: "spice",   name: "SPICE",         title: "SPICE Simulator", icon: "📈", blurb: "Запуск ngspice-симуляции, просмотр осциллограмм." },
+      { id: "filter",  name: "Filter Designer", title: "Filter Designer", icon: "Hz", blurb: "RC/RLC/active filter design with Bode response from the shared AC solver." },
     ],
   },
   {
@@ -59,6 +60,7 @@ export const MODULE_TREE: ModuleDef[] = [
       { id: "packet",   name: "Packet Editor",    title: "Packet Editor",    icon: "📦", blurb: "Конструктор бинарных пакетов: поля, длины, CRC." },
       { id: "uart",     name: "UART Monitor",     title: "UART Monitor",     icon: "🖥️", blurb: "Монитор последовательного порта: hex/ascii, таймстампы." },
       { id: "analyzer", name: "Protocol Analyzer",title: "Protocol Analyzer",icon: "🔬", blurb: "Декодирование захваченного трафика по описанию протокола." },
+      { id: "logic",    name: "Logic Analyzer",   title: "Logic Analyzer",   icon: "📊", blurb: "Импорт VCD/CSV, тайминг-диаграммы и декод UART/I2C/SPI." },
     ],
   },
   {
@@ -69,6 +71,10 @@ export const MODULE_TREE: ModuleDef[] = [
       { id: "lvgl",         name: "LVGL Export",    title: "LVGL Export",            icon: "🖼️", blurb: "Экспорт UI-дизайна в C-код LVGL." },
       { id: "arduino",      name: "Arduino Export", title: "Arduino/ESP-IDF Export", icon: "🟦", blurb: "Генерация скетча/проекта под Arduino или ESP-IDF." },
       { id: "protocodegen", name: "Protocol Code Gen", title: "Protocol Code Gen",   icon: "⚡", blurb: "Кодогенерация сериализаторов/парсеров из описания протокола." },
+      { id: "pinplanner",   name: "Pin Planner", title: "Pin Planner", icon: "PIN", blurb: "MCU pin assignment planner with conflict checks and generated init code." },
+      { id: "eecalc",       name: "EE Calculators", title: "EE Calculators", icon: "EE", blurb: "Practical electronics calculators for dividers, LEDs, PCB traces, and LDO thermal checks." },
+      { id: "powerbudget",  name: "Power Budget", title: "Power Budget", icon: "⚡", blurb: "BOM current estimate grouped by power rails with editable load and source budgets." },
+      { id: "regmap",       name: "Register Map", title: "Register Map", icon: "REG", blurb: "Register/bitfield editor that generates a C header and Markdown documentation." },
     ],
   },
   {

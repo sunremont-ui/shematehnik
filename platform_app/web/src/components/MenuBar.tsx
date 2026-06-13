@@ -16,9 +16,12 @@ function flat(list: ModuleDef[], acc: ModuleDef[] = []): ModuleDef[] {
   return acc;
 }
 
-export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
+export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen, onSaveAs, recentFiles = [], onRecentFile }: {
   onAbout: () => void; onShortcuts: () => void; onHelp: () => void;
   onSave: () => void; onOpen: () => void;
+  onSaveAs?: () => void;
+  recentFiles?: { id: string; name: string }[];
+  onRecentFile?: (id: string) => void;
 }) {
   const ucp = useUcp();
   const [open, setOpen] = useState<string | null>(null);
@@ -38,7 +41,13 @@ export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen }: {
       { label: "Open…", shortcut: "Ctrl+O", onClick: onOpen },
       { label: "Import netlist (.net)…", onClick: onOpen },
       { label: "Import KiCad (.kicad_sch)…", onClick: onOpen },
+      { label: "Import KiCad symbols (.kicad_sym)…", onClick: onOpen },
       { label: "Save", shortcut: "Ctrl+S", onClick: onSave },
+      { label: "Save As…", shortcut: "Ctrl+Shift+S", onClick: onSaveAs ?? onSave },
+      ...(recentFiles.length ? [
+        { label: "", sep: true },
+        ...recentFiles.map((file) => ({ label: `Recent: ${file.name}`, onClick: () => onRecentFile?.(file.id) })),
+      ] : []),
       { label: "", sep: true },
       { label: "Exit", shortcut: "Ctrl+Q", onClick: () => ucp.setStatus("Exit недоступен в браузере") },
     ],

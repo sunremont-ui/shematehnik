@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX, type ModuleDef } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { uiDesign } from "../design.ts";
+import { uiProject } from "../design.ts";
 import { packet } from "../design.ts";
-import { genLvgl, genProtoParser, genBlink } from "../codegen.ts";
+import { genLvgl, genLvglProject, genProtoParser, genBlink } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
 function CodeShell({ mod, code, filename, controls }: { mod: ModuleDef; code: string; filename: string; controls?: React.ReactNode }) {
@@ -23,17 +23,23 @@ function CodeShell({ mod, code, filename, controls }: { mod: ModuleDef; code: st
   );
 }
 
-// LVGL — настоящий код из виджетов UI Designer (общий стор uiDesign).
+// LVGL — настоящий код из экранов UI Designer (общий стор uiProject).
 export function LvglExportView() {
-  const widgets = uiDesign.use();
+  const project = uiProject.use();
   const [file, setFile] = useState<"c" | "h">("c");
-  const gen = genLvgl(widgets, "main");
+  const [mode, setMode] = useState<"project" | "screen">("project");
+  const active = project.screens.find((s) => s.id === project.initialScreenId) ?? project.screens[0] ?? { id: "main", widgets: [] };
+  const gen = mode === "project" ? genLvglProject(project) : genLvgl(active.widgets, active.id);
   const code = file === "c" ? gen.c : gen.h;
+  const widgets = project.screens.reduce((sum, screen) => sum + screen.widgets.length, 0);
   return <CodeShell mod={MODULE_INDEX["lvgl"]} code={code} filename={file === "c" ? "ui.c" : "ui.h"} controls={
     <><span className="muted">File:</span>
       <button className={`btn${file === "c" ? " primary" : ""}`} onClick={() => setFile("c")}>ui.c</button>
       <button className={`btn${file === "h" ? " primary" : ""}`} onClick={() => setFile("h")}>ui.h</button>
-      <span className="chip" style={{ marginLeft: "auto" }}><span className="dot ok" />{widgets.length} widgets из UI Designer</span>
+      <span className="muted">Mode:</span>
+      <button className={`btn${mode === "project" ? " primary" : ""}`} onClick={() => setMode("project")}>Project</button>
+      <button className={`btn${mode === "screen" ? " primary" : ""}`} onClick={() => setMode("screen")}>Current screen</button>
+      <span className="chip" style={{ marginLeft: "auto" }}><span className="dot ok" />{project.screens.length} screens / {widgets} widgets из UI Designer</span>
     </>
   } />;
 }
