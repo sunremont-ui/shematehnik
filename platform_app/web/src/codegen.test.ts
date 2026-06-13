@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { genLvgl, genLvglProject, genPacketStruct, genProtoParser, genBlink, genFsm, genRegisterHeader, genRegisterMarkdown } from "./codegen.ts";
+import { genLvgl, genLvglProject, genLvglImageAsset, genPacketStruct, genProtoParser, genBlink, genFsm, genRegisterHeader, genRegisterMarkdown } from "./codegen.ts";
 import type { UiW, PacketField, FsmDesign, RegisterMapDesign } from "./design.ts";
 
 const widgets: UiW[] = [
@@ -319,6 +319,30 @@ describe("genLvglProject", () => {
     expect(c).toContain("LV_IMG_DECLARE(img_unused);");
     expect(c.match(/LV_IMG_DECLARE\(img_logo\)/g)).toHaveLength(1);
     expect(c).not.toContain('not declared in the project asset manifest');
+  });
+
+  it("emits an inline LVGL image descriptor for manifest assets with pixel data", () => {
+    const { c } = genLvglProject({
+      initialScreenId: "main",
+      assets: [{ id: "img_px", w: 2, h: 1, format: "rgb565", data: [0x1F, 0x00, 0x00, 0xF8] }],
+      screens: [
+        { id: "main", widgets: [{ id: 1, type: "Image", x: 0, y: 0, w: 2, h: 1, text: "", assetId: "img_px" }] },
+      ],
+    });
+    expect(c).toContain("static const uint8_t img_px_map[] = {");
+    expect(c).toContain("0x1F, 0x00, 0x00, 0xF8,");
+    expect(c).toContain("const lv_img_dsc_t img_px = {");
+    expect(c).toContain(".header.cf = LV_IMG_CF_TRUE_COLOR,");
+    expect(c).toContain(".header.w = 2,");
+    expect(c).toContain(".data_size = 4,");
+    expect(c).toContain(".data = img_px_map,");
+    expect(c).toContain("lv_img_set_src(ui_main_Image_1, &img_px);");
+    expect(c).not.toContain("LV_IMG_DECLARE(img_px)");
+  });
+
+  it("genLvglImageAsset returns null without valid pixel data", () => {
+    expect(genLvglImageAsset({ id: "img_logo", src: "assets/logo.png" })).toBeNull();
+    expect(genLvglImageAsset({ id: "img_bad", w: 2, h: 1, format: "rgb565", data: [1, 2] })).toBeNull();
   });
 
   it("warns about widget assets missing from a non-empty manifest", () => {

@@ -124,7 +124,7 @@ describe("project serialize/deserialize", () => {
   it("round-trips the project image asset manifest in .ucp v2", () => {
     const withAssets: UiProjectDesign = {
       initialScreenId: "main",
-      assets: [{ id: "img_logo", src: "assets/logo.png" }, { id: "img_bg" }],
+      assets: [{ id: "img_logo", src: "assets/logo.png" }, { id: "img_bg" }, { id: "img_px", w: 2, h: 1, format: "rgb565", data: [0x1F, 0x00, 0x00, 0xF8] }],
       screens: [{ id: "main", title: "Main", widgets: [{ id: 1, type: "Image", x: 1, y: 2, w: 40, h: 40, text: "", assetId: "img_logo" }] }],
     };
     uiProject.restore(withAssets);

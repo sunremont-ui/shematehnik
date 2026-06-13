@@ -4,6 +4,18 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-13] lab | Web -- LVGL binary image asset pipeline (RGB565)
+
+- `platform_app/web/src/design.ts`: extended `UiAsset` with optional `w`/`h`/`format: "rgb565"`/`data` (decoded bytes), normalized strictly (kept only when `format==="rgb565"`, `w>=1`, `h>=1`, `data.length===w*h*2`).
+- `platform_app/web/src/image.ts` (+ `image.test.ts`): pure `rgbaToRgb565` (canvas RGBA -> little-endian RGB565) and `hasInlinePixels` guard.
+- `platform_app/web/src/codegen.ts`: `genLvglImageAsset` emits `static const uint8_t <id>_map[]` + a `const lv_img_dsc_t <id>` (`LV_IMG_CF_TRUE_COLOR`); `emitProjectImageAssets` emits descriptors for data-backed assets and keeps `LV_IMG_DECLARE` for declare-only manifest/used assets.
+- `platform_app/web/src/modules/codegen_exports.tsx`: LVGL Export manifest rows gained an image import (canvas decode -> `rgbaToRgb565` -> manifest) and a W×H badge.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`: descriptor emission, declare fallback, `genLvglImageAsset` null cases and inline `data` `.ucp` v2 round-trip.
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-14-asset-pipeline.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff and SKILL/command: lab slice and curated docs promoted; non-RGB565 formats, asset folder/skeleton export and LVGL v9 mode remain deferred. Inline data is intended for small icons (large images bloat `.ucp`).
+- Checks: `npm.cmd test` -- 17 files / 153 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (run via `node node_modules/@playwright/test/cli.js`; canvas decode exercised manually, pure conversion + C gen covered by Vitest).
+
+---
+
 ## [2026-06-13] lab | Web -- LVGL per-child flex grow
 
 - `platform_app/web/src/design.ts`: added optional `UiW.flexGrow` with `normalizeUiFlexGrow` (kept only as a positive integer `>= 1`).

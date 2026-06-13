@@ -4,6 +4,7 @@ import { MODULE_INDEX, type ModuleDef } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
 import { uiProject, type UiAsset } from "../design.ts";
 import { packet } from "../design.ts";
+import { rgbaToRgb565 } from "../image.ts";
 import { genLvgl, genLvglProject, genProtoParser, genBlink } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
@@ -23,7 +24,7 @@ function CodeShell({ mod, code, filename, controls }: { mod: ModuleDef; code: st
   );
 }
 
-// Редактор manifest изображений проекта (id + путь к источнику).
+// Редактор manifest изображений проекта (id + путь к источнику + инлайн RGB565).
 function AssetManifest({ assets }: { assets: UiAsset[] }) {
   const patch = (i: number, p: Partial<UiAsset>) => uiProject.update((proj) => {
     const next = [...(proj.assets ?? [])];
@@ -33,6 +34,27 @@ function AssetManifest({ assets }: { assets: UiAsset[] }) {
   });
   const add = () => uiProject.update((proj) => ({ ...proj, assets: [...(proj.assets ?? []), { id: "" }] }));
   const remove = (i: number) => uiProject.update((proj) => ({ ...proj, assets: (proj.assets ?? []).filter((_, j) => j !== i) }));
+  // Декод картинки через canvas → RGB565 байты (чистая конвертация в image.ts).
+  const importImage = (i: number, file: File | undefined) => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || 1;
+        canvas.height = img.naturalHeight || 1;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0);
+        const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        patch(i, { ...rgbaToRgb565(width, height, data), src: assets[i]?.src || file.name });
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.src = url;
+  };
   return (
     <div style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
       <span className="muted">Image assets:</span>
@@ -40,6 +62,10 @@ function AssetManifest({ assets }: { assets: UiAsset[] }) {
         <span key={i} className="chip" style={{ gap: 4 }}>
           <input aria-label="Asset manifest id" placeholder="id" style={{ width: 90 }} value={a.id} onChange={(e) => patch(i, { id: e.target.value })} />
           <input aria-label="Asset manifest src" placeholder="src (path)" style={{ width: 150 }} value={a.src ?? ""} onChange={(e) => patch(i, { src: e.target.value })} />
+          <label className="btn" title="Import image as inline RGB565" style={{ cursor: "pointer" }}>img
+            <input type="file" accept="image/*" hidden onChange={(e) => importImage(i, e.target.files?.[0])} />
+          </label>
+          {a.data && <span className="muted">{a.w}×{a.h}</span>}
           <button className="btn" title="Remove asset" onClick={() => remove(i)}>×</button>
         </span>
       ))}

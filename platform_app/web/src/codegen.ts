@@ -7,6 +7,7 @@ import type {
   UiW, UiAsset, UiProjectDesign, UiScreenDesign, PacketField, FsmDesign,
   RegisterMapDesign, RegisterDef, RegField, UiEventAction,
 } from "./design.ts";
+import { hasInlinePixels } from "./image.ts";
 
 // Безопасное C-имя из произвольного текста.
 function cident(s: string, fallback: string): string {
@@ -108,24 +109,49 @@ function emitImageAssetDecls(out: string[], widgets: UiW[]) {
   if (used.length) out.push("");
 }
 
-// Project-level image assets: declare the union of the manifest and used widget
-// assets, comment declared sources, and report used-but-undeclared references.
-// With an empty manifest, output matches emitImageAssetDecls (legacy projects).
+// Инлайн LVGL-дескриптор изображения (RGB565, LV_IMG_CF_TRUE_COLOR) из пикселей
+// манифеста. Возвращает null, если валидных пикселей нет (тогда — LV_IMG_DECLARE).
+export function genLvglImageAsset(asset: UiAsset): string | null {
+  if (!hasInlinePixels(asset)) return null;
+  const id = cident(asset.id.trim(), "ui_image_asset");
+  const data = asset.data!;
+  const bytes = data.map((b) => `0x${(b & 0xFF).toString(16).toUpperCase().padStart(2, "0")}`);
+  const rows: string[] = [];
+  for (let i = 0; i < bytes.length; i += 12) rows.push("    " + bytes.slice(i, i + 12).join(", ") + ",");
+  return [
+    `static const uint8_t ${id}_map[] = {`,
+    ...rows,
+    `};`,
+    `const lv_img_dsc_t ${id} = {`,
+    `    .header.cf = LV_IMG_CF_TRUE_COLOR,`,
+    `    .header.w = ${asset.w},`,
+    `    .header.h = ${asset.h},`,
+    `    .data_size = ${data.length},`,
+    `    .data = ${id}_map,`,
+    `};`,
+  ].join("\n");
+}
+
+// Project-level image assets: emit inline descriptors for manifest assets that carry
+// pixel data, declare the rest (manifest + used widgets), and report used-but-undeclared
+// references. With an empty manifest, output matches emitImageAssetDecls (legacy).
 function emitProjectImageAssets(out: string[], widgets: UiW[], assets: UiAsset[]) {
-  const declared = new Map<string, string | undefined>();
+  const manifest = new Map<string, UiAsset>();
   for (const a of assets) {
     const id = cident(a.id.trim(), "");
-    if (!id || declared.has(id)) continue;
-    declared.set(id, a.src?.trim() || undefined);
+    if (!id || manifest.has(id)) continue;
+    manifest.set(id, a);
   }
   const used = usedImageAssets(widgets);
-  if (declared.size === 0) {
+  if (manifest.size === 0) {
     emitImageAssetDecls(out, widgets);
     return;
   }
   const emitted = new Set<string>();
-  for (const [id, src] of declared) {
-    out.push(`LV_IMG_DECLARE(${id});${src ? ` // src: ${src}` : ""}`);
+  for (const [id, asset] of manifest) {
+    const dsc = genLvglImageAsset(asset);
+    if (dsc) out.push(dsc, "");
+    else out.push(`LV_IMG_DECLARE(${id});${asset.src?.trim() ? ` // src: ${asset.src.trim()}` : ""}`);
     emitted.add(id);
   }
   for (const id of used) {
@@ -134,7 +160,7 @@ function emitProjectImageAssets(out: string[], widgets: UiW[], assets: UiAsset[]
     out.push(`LV_IMG_DECLARE(${id});`);
   }
   for (const id of used) {
-    if (!declared.has(id)) out.push(`/* TODO: image asset "${id}" is used but not declared in the project asset manifest */`);
+    if (!manifest.has(id)) out.push(`/* TODO: image asset "${id}" is used but not declared in the project asset manifest */`);
   }
   out.push("");
 }

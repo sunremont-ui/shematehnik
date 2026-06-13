@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 13 (per-child flex grow) implemented and verified; commit it together with this handoff update.
+- Slice 14 (binary RGB565 image asset pipeline) implemented and verified; commit it together with this handoff update.
+- Slice 13 (per-child flex grow) committed as `c7a1e35 feat(web): add LVGL per-child flex grow`.
 - Slice 12 (Panel flex cross-axis + track align) committed as `40d7209 feat(web): add LVGL Panel flex cross-axis and track alignment`.
 - Slice 11 (Panel flex main-axis align) committed as `639c422 feat(web): add LVGL Panel flex main-axis alignment`.
 - Slice 10 (project image asset manifest) committed as `eacb611 feat(web): add LVGL project asset manifest`.
@@ -17,7 +18,7 @@ Current lab state:
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
-- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report), Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
+- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report) with inline RGB565 `lv_img_dsc_t` pixels, Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
 
 ## Current Working Files
 
@@ -25,9 +26,11 @@ Core code:
 
 - `platform_app/web/src/design.ts`
 - `platform_app/web/src/codegen.ts`
+- `platform_app/web/src/image.ts`
 - `platform_app/web/src/modules/UiDesignerView.tsx`
 - `platform_app/web/src/modules/codegen_exports.tsx`
 - `platform_app/web/src/codegen.test.ts`
+- `platform_app/web/src/image.test.ts`
 - `platform_app/web/src/project.test.ts`
 - `platform_app/web/e2e/smoke.spec.ts`
 
@@ -50,7 +53,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 13:
+Latest full verification from slice 14:
 
 ```bash
 cd platform_app/web
@@ -63,7 +66,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Full Vitest: 16 files / 148 tests passed.
+- Full Vitest: 17 files / 153 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 
@@ -84,16 +87,15 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Good Next Slice Options
 
-Slices 10-13 are done: asset manifest, full main/cross/track flex align and per-child
-flex grow. Flex layout primitives are now well covered. Pick one small vertical slice,
-write a `slice-14-*.md` plan first, then implement.
+Slices 10-14 are done: asset manifest with inline RGB565 pixels, full main/cross/track
+flex align and per-child flex grow. Flex primitives and a one-format asset pipeline are
+covered. Pick one small vertical slice, write a `slice-15-*.md` plan first, then implement.
 
-1. Binary/file asset pipeline
+1. Second image format
 
-- Build on the slice-10 `UiProjectDesign.assets` manifest `src` field.
-- Add image import + LVGL C array generation for declared assets.
-- Keep it narrow: one format, deterministic output, no folder/skeleton export yet.
-- Tests: array generation for a tiny fixture image, manifest-to-array linkage.
+- Add `LV_IMG_CF_TRUE_COLOR_ALPHA` (ARGB / RGB565A8) on top of the slice-14 pipeline.
+- Keep one new format, deterministic output; reuse `genLvglImageAsset` shape.
+- Tests: alpha conversion fixture + descriptor `.header.cf` selection.
 
 2. Per-child flex shrink / self-align
 
@@ -106,11 +108,11 @@ write a `slice-14-*.md` plan first, then implement.
 
 - No code changes.
 - Re-check official LVGL current docs and record exact v9 constructor/screen/style/event differences.
-- Produce a candidate `slice-14-v9-mode.md` with acceptance criteria before implementation.
+- Produce a candidate `slice-15-v9-mode.md` with acceptance criteria before implementation.
 
-Recommended next slice if the user asks to continue implementation: option 1 (binary
-asset pipeline) -- the flex primitives are now largely complete, so assets are the
-biggest remaining practical gap.
+Recommended next slice if the user asks to continue implementation: option 3 (LVGL v9
+research) -- the v8 primitives are now broad, so the biggest open question is the v8/v9
+boundary before adding more v8 surface.
 
 ## Promotion Checklist For The Next Agent
 

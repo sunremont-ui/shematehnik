@@ -39,7 +39,7 @@ export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventA
 export interface UiStyle { bgColor?: string; radius?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
-export interface UiAsset { id: string; src?: string; }
+export interface UiAsset { id: string; src?: string; w?: number; h?: number; format?: "rgb565"; data?: number[]; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
 export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: string; assets?: UiAsset[]; }
 export const UI_EVENT_CODES: UiEventCode[] = ["clicked", "value_changed"];
@@ -112,7 +112,13 @@ function normalizeUiAssets(raw: unknown): UiAsset[] {
     if (!id || seen.has(id)) continue;
     seen.add(id);
     const src = typeof entry.src === "string" ? entry.src.replace(/[\r\n]+/g, " ").trim() : "";
-    assets.push(src ? { id, src } : { id });
+    const asset: UiAsset = src ? { id, src } : { id };
+    const w = Math.round(Number(entry.w)), h = Math.round(Number(entry.h));
+    const data = Array.isArray(entry.data) ? entry.data.map((n) => Number(n) & 0xFF) : null;
+    if (entry.format === "rgb565" && w >= 1 && h >= 1 && data && data.length === w * h * 2) {
+      asset.w = w; asset.h = h; asset.format = "rgb565"; asset.data = data;
+    }
+    assets.push(asset);
   }
   return assets;
 }
