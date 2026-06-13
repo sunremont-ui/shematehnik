@@ -136,7 +136,7 @@ Programs/Analyzer; SPICE линейный; PCB-DRC без зазоров. При
 
 ## Следующий контур — LVGL Lab / UI Designer 2.0
 
-Статус: lab in progress; L0/L1/L3 done, L2/L4 multi-screen generator, UI state / `.ucp` migration wrapper, minimal event callback slice, minimal screen-load action routing, minimal style-token slice, minimal Image asset placeholder, minimal Panel flex layout and minimal Panel child-parent slice done; next candidate is a fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode. Лаборатория: `platform_app_lab/projects/lvgl-exporter-improvement-v0/`; compact handoff for the next agent: `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`.
+Статус: lab in progress; L0/L1/L3 done, L2/L4 multi-screen generator, UI state / `.ucp` migration wrapper, minimal event callback slice, minimal screen-load action routing, minimal style-token slice, minimal Image asset placeholder, project asset manifest (id/src + missing-asset report), minimal Panel flex layout and minimal Panel child-parent slice done; next candidate is binary/file asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode. Лаборатория: `platform_app_lab/projects/lvgl-exporter-improvement-v0/`; compact handoff for the next agent: `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`.
 Скилл/команда: `/ucp-web-lvgl-lab`.
 
 Цель: улучшать LVGL Export через измеримый research-first контур, а не расширять генератор вслепую. Текущий baseline — single-screen `ui.c/ui.h` из legacy `uiDesign`; он зафиксирован source notes, compatibility matrix, exact golden-output тестом и отдельной записью в wiki log. Multi-screen baseline реализован как `uiProject` + `genLvglProject()`: UI Designer редактирует экраны, `.ucp` v2 сохраняет `design.uiProject`, старый `design.uiDesign` мигрирует в один `main` screen.
@@ -145,10 +145,10 @@ Programs/Analyzer; SPICE линейный; PCB-DRC без зазоров. При
 |---|---|---|
 | L0 Audit | [x] | Текущий `uiDesign` model, `genLvgl()`, UI Designer и LVGL Export описаны в lab audit |
 | L1 Compatibility | [x] first pass | Матрица LVGL v8/v9: текущий v8-style baseline сохранён; v9/SquareLine claims отложены до fixtures |
-| L2 Model | [x] multi-screen + events/actions + styles + assets + layout/parents | `UiProjectDesign`/`UiScreenDesign`, `uiProject`, `.ucp` migration wrapper, `genLvglProject()`, minimal `UiEvent`, `screen_load` action, `UiStyle`, `Image.assetId`, `Panel.layout` and non-Panel `parentId` metadata ready; nested/responsive hierarchy pending |
-| L3 Golden tests | [x] baseline + events/actions + styles + assets + layout/parents | Exact fixture для текущих `ui.c/ui.h` в `codegen.test.ts`; event, screen-load action, style, image asset, Panel flex layout and Panel child-parent checks added |
-| L4 Slice | [x] state + events/actions + styles + assets + layout/parents | Multi-screen generator/UI state plus minimal clicked/value_changed callback stubs, screen-load controls/export, bgColor/radius controls, Image asset id export, Panel layout controls/export and Parent panel controls/export |
-| L5 Promotion | [x] current slices | Подтверждённые single-screen, multi-screen, persistence, minimal-event/action, minimal-style, minimal-asset, minimal-layout and minimal-parent решения перенесены в `modules/codegen.md`, `integration/squareline.md`, roadmap и `log.md` |
+| L2 Model | [x] multi-screen + events/actions + styles + assets + manifest + layout/parents | `UiProjectDesign`/`UiScreenDesign`, `uiProject`, `.ucp` migration wrapper, `genLvglProject()`, minimal `UiEvent`, `screen_load` action, `UiStyle`, `Image.assetId`, `UiProjectDesign.assets` manifest, `Panel.layout` and non-Panel `parentId` metadata ready; nested/responsive hierarchy pending |
+| L3 Golden tests | [x] baseline + events/actions + styles + assets + manifest + layout/parents | Exact fixture для текущих `ui.c/ui.h` в `codegen.test.ts`; event, screen-load action, style, image asset, asset-manifest src/missing, Panel flex layout and Panel child-parent checks added |
+| L4 Slice | [x] state + events/actions + styles + assets + manifest + layout/parents | Multi-screen generator/UI state plus minimal clicked/value_changed callback stubs, screen-load controls/export, bgColor/radius controls, Image asset id export, project asset-manifest editor, Panel layout controls/export and Parent panel controls/export |
+| L5 Promotion | [x] current slices | Подтверждённые single-screen, multi-screen, persistence, minimal-event/action, minimal-style, minimal-asset, asset-manifest, minimal-layout and minimal-parent решения перенесены в `modules/codegen.md`, `integration/squareline.md`, roadmap и `log.md` |
 
 ## Принципы
 

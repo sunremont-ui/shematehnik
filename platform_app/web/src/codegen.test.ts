@@ -271,6 +271,34 @@ describe("genLvglProject", () => {
     expect(c).toContain("lv_img_set_src(ui_settings_Image_1, &img_logo);");
   });
 
+  it("comments declared asset sources from the project manifest", () => {
+    const { c } = genLvglProject({
+      initialScreenId: "main",
+      assets: [{ id: "img_logo", src: "assets/logo.png" }, { id: "img_unused" }],
+      screens: [
+        { id: "main", widgets: [{ id: 1, type: "Image", x: 4, y: 4, w: 32, h: 32, text: "", assetId: "img_logo" }] },
+      ],
+    });
+    expect(c).toContain("LV_IMG_DECLARE(img_logo); // src: assets/logo.png");
+    expect(c).toContain("LV_IMG_DECLARE(img_unused);");
+    expect(c.match(/LV_IMG_DECLARE\(img_logo\)/g)).toHaveLength(1);
+    expect(c).not.toContain('not declared in the project asset manifest');
+  });
+
+  it("warns about widget assets missing from a non-empty manifest", () => {
+    const { c } = genLvglProject({
+      initialScreenId: "main",
+      assets: [{ id: "img_logo", src: "assets/logo.png" }],
+      screens: [
+        { id: "main", widgets: [{ id: 1, type: "Image", x: 4, y: 4, w: 32, h: 32, text: "", assetId: "img_logo" }] },
+        { id: "settings", widgets: [{ id: 2, type: "Image", x: 8, y: 8, w: 32, h: 32, text: "", assetId: "img_extra" }] },
+      ],
+    });
+    expect(c).toContain("LV_IMG_DECLARE(img_extra);");
+    expect(c).toContain('/* TODO: image asset "img_extra" is used but not declared in the project asset manifest */');
+    expect(c).not.toContain('"img_logo" is used but not declared');
+  });
+
   it("generates screen-scoped Panel flex layout", () => {
     const { c } = genLvglProject({
       initialScreenId: "main",

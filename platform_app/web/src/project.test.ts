@@ -121,6 +121,28 @@ describe("project serialize/deserialize", () => {
     expect(uiDesign.get()).toEqual(multi.screens[0].widgets);
   });
 
+  it("round-trips the project image asset manifest in .ucp v2", () => {
+    const withAssets: UiProjectDesign = {
+      initialScreenId: "main",
+      assets: [{ id: "img_logo", src: "assets/logo.png" }, { id: "img_bg" }],
+      screens: [{ id: "main", title: "Main", widgets: [{ id: 1, type: "Image", x: 1, y: 2, w: 40, h: 40, text: "", assetId: "img_logo" }] }],
+    };
+    uiProject.restore(withAssets);
+
+    const text = serialize(emptyProject("Asset Bundle"));
+    expect(JSON.parse(text).design.uiProject).toEqual(withAssets);
+
+    uiProject.restore({ initialScreenId: "main", screens: [{ id: "main", widgets: [] }] });
+    deserialize(text);
+    expect(uiProject.get()).toEqual(withAssets);
+  });
+
+  it("omits the asset manifest key when empty", () => {
+    uiProject.restore({ initialScreenId: "main", screens: [{ id: "main", widgets: [] }] });
+    const file = JSON.parse(serialize(emptyProject("No Assets")));
+    expect(file.design.uiProject).not.toHaveProperty("assets");
+  });
+
   it("migrates legacy .ucp v2 uiDesign into a single-screen uiProject", () => {
     const widgets = [{ id: 9, type: "Image", x: 2, y: 3, w: 44, h: 22, text: "Legacy UI", assetId: "img_legacy" }];
     const text = JSON.stringify({

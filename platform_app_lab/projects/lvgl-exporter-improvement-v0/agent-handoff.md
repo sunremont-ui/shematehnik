@@ -4,9 +4,10 @@
 
 Date: 2026-06-13.
 
-Last implementation commit:
+Last implementation work:
 
-- `5d4f4c6 feat(web): add LVGL panel child parents`
+- Slice 10 (project image asset manifest) implemented and verified; not yet committed (see git status).
+- Previous commit: `5d4f4c6 feat(web): add LVGL panel child parents`.
 
 Current lab state:
 
@@ -14,7 +15,7 @@ Current lab state:
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
-- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, Panel flex layout, and same-screen Panel child parents.
+- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report), Panel flex layout, and same-screen Panel child parents.
 
 ## Current Working Files
 
@@ -47,24 +48,30 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 09:
+Latest full verification from slice 10:
 
 ```bash
 cd platform_app/web
 npm.cmd test -- codegen.test.ts project.test.ts
 npm.cmd test
 npm.cmd run build
-npm.cmd run test:e2e -- --grep "CodeGen LVGL"
+# e2e: see shell note below
+node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=line
 ```
 
 Results:
 
-- Targeted Vitest: 53 passed.
-- Full Vitest: 16 files / 140 tests passed.
+- Targeted Vitest: 57 passed.
+- Full Vitest: 16 files / 144 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
-- Targeted Playwright: printed `ok 1` for `CodeGen LVGL`, then hit the known Playwright webServer shutdown timeout after 180s.
+- Targeted Playwright: 1 passed (`CodeGen LVGL`).
 
-Treat the Playwright timeout as an environment/webServer shutdown issue when the test already prints `ok 1`; still record it honestly in `wiki/log.md`.
+Shell note: in the current Git Bash environment `npm run test:e2e` (and any `npm run`)
+aborts immediately with a `"C:\Program"` path-split error from the npm script wrapper,
+and the PowerShell tool is unavailable. Run Playwright directly via
+`node node_modules/@playwright/test/cli.js test ...` to bypass it. Prior slices also saw
+a webServer shutdown timeout after `ok 1`; if you hit that, treat it as an environment
+issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Do Not Reopen Unless Needed
 
@@ -76,14 +83,15 @@ Treat the Playwright timeout as an environment/webServer shutdown issue when the
 
 ## Good Next Slice Options
 
-Pick one small vertical slice, write a `slice-10-*.md` plan first, then implement.
+Slice 10 (project asset manifest, id/src declarations + missing-asset report) is done.
+Pick one small vertical slice, write a `slice-11-*.md` plan first, then implement.
 
-1. Minimal asset manifest pipeline
+1. Binary/file asset pipeline
 
-- Add a tiny `uiAssets` or `UiProjectDesign.assets` manifest for image ids.
-- Keep binary generation out of scope.
-- Generator can emit declarations plus a clearer missing/declared asset report.
-- Tests: asset manifest round-trip, declaration dedupe, missing asset warning.
+- Build on the slice-10 `UiProjectDesign.assets` manifest `src` field.
+- Add image import + LVGL C array generation for declared assets.
+- Keep it narrow: one format, deterministic output, no folder/skeleton export yet.
+- Tests: array generation for a tiny fixture image, manifest-to-array linkage.
 
 2. Minimal flex alignment metadata
 
@@ -96,9 +104,10 @@ Pick one small vertical slice, write a `slice-10-*.md` plan first, then implemen
 
 - No code changes.
 - Re-check official LVGL current docs and record exact v9 constructor/screen/style/event differences.
-- Produce a candidate `slice-10-v9-mode.md` with acceptance criteria before implementation.
+- Produce a candidate `slice-11-v9-mode.md` with acceptance criteria before implementation.
 
-Recommended next slice if the user asks to continue implementation: option 1, because assets are currently the biggest practical gap and can be kept narrow.
+Recommended next slice if the user asks to continue implementation: option 2 (flex
+alignment) for the smallest narrow win, or option 1 if a real asset pipeline is wanted.
 
 ## Promotion Checklist For The Next Agent
 

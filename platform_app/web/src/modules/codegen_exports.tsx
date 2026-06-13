@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX, type ModuleDef } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { uiProject } from "../design.ts";
+import { uiProject, type UiAsset } from "../design.ts";
 import { packet } from "../design.ts";
 import { genLvgl, genLvglProject, genProtoParser, genBlink } from "../codegen.ts";
 import { downloadText } from "../util.ts";
@@ -19,6 +19,31 @@ function CodeShell({ mod, code, filename, controls }: { mod: ModuleDef; code: st
       <div className="card" style={{ padding: 0 }}>
         <pre className="code" style={{ border: "none", maxHeight: 420, margin: 0 }}>{code}</pre>
       </div>
+    </div>
+  );
+}
+
+// Редактор manifest изображений проекта (id + путь к источнику).
+function AssetManifest({ assets }: { assets: UiAsset[] }) {
+  const patch = (i: number, p: Partial<UiAsset>) => uiProject.update((proj) => {
+    const next = [...(proj.assets ?? [])];
+    next[i] = { ...next[i], ...p };
+    if (!next[i].src) delete next[i].src;
+    return { ...proj, assets: next };
+  });
+  const add = () => uiProject.update((proj) => ({ ...proj, assets: [...(proj.assets ?? []), { id: "" }] }));
+  const remove = (i: number) => uiProject.update((proj) => ({ ...proj, assets: (proj.assets ?? []).filter((_, j) => j !== i) }));
+  return (
+    <div style={{ flexBasis: "100%", display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+      <span className="muted">Image assets:</span>
+      {assets.map((a, i) => (
+        <span key={i} className="chip" style={{ gap: 4 }}>
+          <input aria-label="Asset manifest id" placeholder="id" style={{ width: 90 }} value={a.id} onChange={(e) => patch(i, { id: e.target.value })} />
+          <input aria-label="Asset manifest src" placeholder="src (path)" style={{ width: 150 }} value={a.src ?? ""} onChange={(e) => patch(i, { src: e.target.value })} />
+          <button className="btn" title="Remove asset" onClick={() => remove(i)}>×</button>
+        </span>
+      ))}
+      <button className="btn" onClick={add}>+ Asset</button>
     </div>
   );
 }
@@ -40,6 +65,7 @@ export function LvglExportView() {
       <button className={`btn${mode === "project" ? " primary" : ""}`} onClick={() => setMode("project")}>Project</button>
       <button className={`btn${mode === "screen" ? " primary" : ""}`} onClick={() => setMode("screen")}>Current screen</button>
       <span className="chip" style={{ marginLeft: "auto" }}><span className="dot ok" />{project.screens.length} screens / {widgets} widgets из UI Designer</span>
+      {mode === "project" && <AssetManifest assets={project.assets ?? []} />}
     </>
   } />;
 }

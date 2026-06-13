@@ -163,6 +163,11 @@ test.describe("UCP web smoke", () => {
     await expect(page.locator("pre.code")).toContainText("ui_main_Label_8 = lv_label_create(ui_main_Panel_7)");
     await expect(page.locator("pre.code")).toContainText("lv_scr_load(ui_screen_2)");
     await expect(page.locator(".chip", { hasText: /widgets из UI Designer/ })).toBeVisible();
+    // Asset manifest: declare a source for the used image and see the comment.
+    await page.getByRole("button", { name: "+ Asset" }).click();
+    await page.getByLabel("Asset manifest id").fill("img_logo");
+    await page.getByLabel("Asset manifest src").fill("assets/logo.png");
+    await expect(page.locator("pre.code")).toContainText("LV_IMG_DECLARE(img_logo); // src: assets/logo.png");
   });
 
   test("UART Monitor: sim fallback streams data, serial connect bar renders", async ({ page }) => {

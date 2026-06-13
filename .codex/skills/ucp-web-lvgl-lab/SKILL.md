@@ -29,6 +29,7 @@ Use this skill for research-first LVGL exporter work after roadmap phase 17.
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-07-layouts.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-08-actions.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-09-container-parents.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-10-asset-manifest.md`
    - `platform_app/web/src/design.ts`
    - `platform_app/web/src/codegen.ts`
    - `platform_app/web/src/modules/UiDesignerView.tsx`
@@ -72,5 +73,5 @@ Manual UI smoke:
 
 - Current exporter has a backward-compatible single-screen path and a persisted multi-screen `uiProject` path.
 - Use `agent-handoff.md` as the compact continuation snapshot before choosing the next slice.
-- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, minimal `Panel.layout` flex output and same-screen `Panel` child parents are in place; richer action graphs/styles, full assets, nested/responsive layouts and LVGL v9 mode are still pending.
+- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), minimal `Panel.layout` flex output and same-screen `Panel` child parents are in place; richer action graphs/styles, a binary/file asset pipeline, nested/responsive layouts and LVGL v9 mode are still pending.
 - Do not mix SquareLine import promises with direct LVGL export work unless a real `.spj` or generated SquareLine project fixture is in the lab.

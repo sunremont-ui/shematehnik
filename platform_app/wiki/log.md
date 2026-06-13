@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-13] lab | Web -- LVGL project asset manifest
+
+- `platform_app/web/src/design.ts`: added `UiAsset` and optional `UiProjectDesign.assets`, with `normalizeUiAssets` (trim/dedupe id, single-line src) wired into `normalizeUiProject`; empty manifest omits the key.
+- `platform_app/web/src/codegen.ts`: `genLvglProject()` now declares the union of manifest and used widget image assets once each, comments declared sources as `// src: <path>`, and emits a used-but-undeclared TODO when the manifest is non-empty; empty/absent manifest keeps slice-06 output byte-identical (`emitImageAssetDecls`).
+- `platform_app/web/src/modules/codegen_exports.tsx`: LVGL Export (Project mode) gained a minimal asset-manifest editor (add/remove id + src rows) bound to `uiProject`.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`, `platform_app/web/e2e/smoke.spec.ts`: added src-comment, missing-asset warning, union/dedupe, `.ucp` v2 manifest round-trip, empty-manifest omission and a UI Designer -> LVGL Export manifest smoke.
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-10-asset-manifest.md`, `wiki/modules/codegen.md`, `wiki/roadmap-web.md`: lab slice and curated docs promoted; binary/file asset pipeline, nested/responsive layout, richer action graph and LVGL v9 mode remain deferred.
+- Checks: `npm.cmd test -- codegen.test.ts project.test.ts` -- 57 passed; `npm.cmd test` -- 16 files / 144 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (run via `node node_modules/@playwright/test/cli.js` because `npm run` mangled the script path in this Git Bash shell).
+
+---
+
 ## [2026-06-13] docs | Web -- LVGL handoff refresh
 
 - `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`: added compact continuation snapshot for the next agent with current commit, verified checks, known Playwright timeout, files to read, non-goals and next slice options.

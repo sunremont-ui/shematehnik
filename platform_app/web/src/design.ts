@@ -38,8 +38,9 @@ export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventA
 export interface UiStyle { bgColor?: string; radius?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
+export interface UiAsset { id: string; src?: string; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
-export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: string; }
+export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: string; assets?: UiAsset[]; }
 export const UI_EVENT_CODES: UiEventCode[] = ["clicked", "value_changed"];
 export const UI_EVENT_ACTION_KINDS: UiEventActionKind[] = ["screen_load"];
 export const UI_LAYOUT_KINDS: UiLayoutKind[] = ["flex_row", "flex_column"];
@@ -92,6 +93,20 @@ function sanitizeUiParents(widgets: UiW[]): UiW[] {
 function normalizeUiAsset(raw: unknown): { assetId?: string } {
   const assetId = typeof raw === "string" ? raw.trim() : "";
   return assetId ? { assetId } : {};
+}
+
+function normalizeUiAssets(raw: unknown): UiAsset[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const assets: UiAsset[] = [];
+  for (const entry of raw.filter(obj)) {
+    const id = typeof entry.id === "string" ? entry.id.trim() : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const src = typeof entry.src === "string" ? entry.src.replace(/[\r\n]+/g, " ").trim() : "";
+    assets.push(src ? { id, src } : { id });
+  }
+  return assets;
 }
 
 function normalizeUiEvent(raw: unknown): { event?: UiEvent } {
@@ -157,7 +172,8 @@ function normalizeUiProject(raw: unknown, fallbackWidgets: UiW[] = DEFAULT_UI_WI
   const initial = typeof raw.initialScreenId === "string" && ids.has(raw.initialScreenId)
     ? raw.initialScreenId
     : screens[0].id;
-  return { screens, initialScreenId: initial };
+  const assets = normalizeUiAssets(raw.assets);
+  return { screens, initialScreenId: initial, ...(assets.length ? { assets } : {}) };
 }
 
 function initialScreen(project: UiProjectDesign): UiScreenDesign {
