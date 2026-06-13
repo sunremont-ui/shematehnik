@@ -136,7 +136,7 @@ Programs/Analyzer; SPICE линейный; PCB-DRC без зазоров. При
 
 ## Следующий контур — LVGL Lab / UI Designer 2.0
 
-Статус: lab in progress; L0/L1/L3 done, L2/L4 multi-screen generator, UI state / `.ucp` migration wrapper, minimal event callback slice, minimal screen-load action routing, minimal style-token slice, minimal Image asset placeholder, minimal Panel flex layout and minimal Panel child-parent slice done; next candidate is a fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode. Лаборатория: `platform_app_lab/projects/lvgl-exporter-improvement-v0/`.
+Статус: lab in progress; L0/L1/L3 done, L2/L4 multi-screen generator, UI state / `.ucp` migration wrapper, minimal event callback slice, minimal screen-load action routing, minimal style-token slice, minimal Image asset placeholder, minimal Panel flex layout and minimal Panel child-parent slice done; next candidate is a fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode. Лаборатория: `platform_app_lab/projects/lvgl-exporter-improvement-v0/`; compact handoff for the next agent: `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`.
 Скилл/команда: `/ucp-web-lvgl-lab`.
 
 Цель: улучшать LVGL Export через измеримый research-first контур, а не расширять генератор вслепую. Текущий baseline — single-screen `ui.c/ui.h` из legacy `uiDesign`; он зафиксирован source notes, compatibility matrix, exact golden-output тестом и отдельной записью в wiki log. Multi-screen baseline реализован как `uiProject` + `genLvglProject()`: UI Designer редактирует экраны, `.ucp` v2 сохраняет `design.uiProject`, старый `design.uiDesign` мигрирует в один `main` screen.

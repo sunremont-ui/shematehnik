@@ -79,6 +79,8 @@ Known improvement area for the next laboratory pass:
 
 See also: [SquareLine Studio Bridge](../integration/squareline.md) and the LVGL lab roadmap in [Roadmap -- Web](../roadmap-web.md).
 
+For continuation work, start with `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`.
+
 ## Protocol Code Gen
 
 `Protocol Code Gen` reads the same `packet` fields as Packet Editor and Protocol Analyzer.

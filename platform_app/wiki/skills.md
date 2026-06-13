@@ -43,7 +43,7 @@ Available slash commands when working in this repository.
 
 | Команда | Контур | Назначение |
 |---------|--------|-----------|
-| `/ucp-web-lvgl-lab` | LVGL Lab | Research-first улучшение UI Designer/LVGL Export: LVGL notes, compatibility matrix, single-screen golden baseline, multi-screen generator, UI state / `.ucp` wrapper, minimal event callback stubs, screen-load actions, style tokens, image asset placeholders, Panel flex layout and Panel child parents done; next preferred slice is fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode |
+| `/ucp-web-lvgl-lab` | LVGL Lab | Research-first улучшение UI Designer/LVGL Export: LVGL notes, compatibility matrix, single-screen golden baseline, multi-screen generator, UI state / `.ucp` wrapper, minimal event callback stubs, screen-load actions, style tokens, image asset placeholders, Panel flex layout and Panel child parents done; read `agent-handoff.md` before continuing; next preferred slice is fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode |
 
 ## Firmware Project (v3.1)
 

@@ -11,6 +11,7 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
   - `platform_app/web/src/modules/codegen_exports.tsx` -- LVGL Export view.
 - Lab artifacts:
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/README.md`
+  - `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/current-audit.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/research-plan.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/source-notes.md`
@@ -43,7 +44,7 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
 5. Implement the smallest vertical slice.
 6. Promote validated decisions back to wiki/roadmap.
 
-Current slices: LVGL source notes, compatibility matrix, exact single-screen `ui.c/ui.h` golden baseline, `genLvglProject()` multi-screen baseline, UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, minimal `Panel.layout` flex output and same-screen `Panel` child parents are in place. Prefer a fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode next unless a narrower fixture is requested.
+Current slices: LVGL source notes, compatibility matrix, exact single-screen `ui.c/ui.h` golden baseline, `genLvglProject()` multi-screen baseline, UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, minimal `Panel.layout` flex output and same-screen `Panel` child parents are in place. Read `agent-handoff.md` for the latest continuation snapshot. Prefer a fuller asset pipeline, nested/responsive layout work, richer action graph or LVGL v9 mode next unless a narrower fixture is requested.
 
 ## Validation
 

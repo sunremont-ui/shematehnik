@@ -14,6 +14,7 @@ Use this skill for research-first LVGL exporter work after roadmap phase 17.
    - `platform_app/wiki/integration/squareline.md`
    - `platform_app/wiki/roadmap-web.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/README.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/current-audit.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/research-plan.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/source-notes.md`
@@ -70,5 +71,6 @@ Manual UI smoke:
 ## Notes
 
 - Current exporter has a backward-compatible single-screen path and a persisted multi-screen `uiProject` path.
+- Use `agent-handoff.md` as the compact continuation snapshot before choosing the next slice.
 - `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, minimal `Panel.layout` flex output and same-screen `Panel` child parents are in place; richer action graphs/styles, full assets, nested/responsive layouts and LVGL v9 mode are still pending.
 - Do not mix SquareLine import promises with direct LVGL export work unless a real `.spj` or generated SquareLine project fixture is in the lab.

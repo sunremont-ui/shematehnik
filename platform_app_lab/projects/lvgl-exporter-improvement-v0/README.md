@@ -14,6 +14,7 @@ The lab should answer what to build next, how to test it, and where the boundary
 - Generator: `platform_app/web/src/codegen.ts` -> `genLvgl()`.
 - Current output: `ui.c` and `ui.h` for one screen, default name `main`, with optional v8 event callback stubs, screen-load event actions in project export, minimal style tokens, image asset placeholders, Panel flex layout setup and Panel child object parents when widget metadata is set.
 - Curated docs: `platform_app/wiki/modules/codegen.md` and `platform_app/wiki/integration/squareline.md`.
+- Continuation handoff: `agent-handoff.md`.
 
 ## Workstreams
 
@@ -45,6 +46,7 @@ The lab should answer what to build next, how to test it, and where the boundary
 
 - `source-notes.md` -- primary source notes and access status.
 - `compatibility-matrix.md` -- v8/current/latest compatibility boundary.
+- `agent-handoff.md` -- current state, verified checks and next-agent continuation notes.
 - `slice-proposal.md` -- selected first slice and acceptance criteria.
 - `multi-screen-model.md` -- project/screen data model and migration boundary.
 - `slice-02-multiscreen.md` -- multi-screen generator slice and acceptance criteria.
@@ -58,4 +60,4 @@ The lab should answer what to build next, how to test it, and where the boundary
 
 ## Status
 
-Started 2026-06-12 after web roadmap phase 17 completion. Current state: single-screen baseline, multi-screen generator baseline, UI Designer `.ucp` persistence wrapper, minimal clicked/value_changed callback stubs, minimal screen-load event actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, minimal Panel flex layout metadata and minimal Panel child-parent metadata are tested; full asset pipeline, nested/responsive layouts, richer actions/themes and LVGL v9 mode are still pending.
+Started 2026-06-12 after web roadmap phase 17 completion. Current state: single-screen baseline, multi-screen generator baseline, UI Designer `.ucp` persistence wrapper, minimal clicked/value_changed callback stubs, minimal screen-load event actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, minimal Panel flex layout metadata and minimal Panel child-parent metadata are tested; full asset pipeline, nested/responsive layouts, richer actions/themes and LVGL v9 mode are still pending. The latest continuation state for another agent is in `agent-handoff.md`.

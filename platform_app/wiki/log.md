@@ -4,6 +4,16 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-13] docs | Web -- LVGL handoff refresh
+
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/agent-handoff.md`: added compact continuation snapshot for the next agent with current commit, verified checks, known Playwright timeout, files to read, non-goals and next slice options.
+- `platform_app_lab/projects/lvgl-exporter-improvement-v0/README.md`: linked the handoff artifact from the lab index and current status.
+- `.codex/skills/ucp-web-lvgl-lab/SKILL.md` and `.claude/commands/ucp-web-lvgl-lab.md`: added `agent-handoff.md` to the required reading list and continuation notes.
+- `platform_app/wiki/roadmap-web.md`, `platform_app/wiki/skills.md`, `platform_app/wiki/modules/codegen.md` and `platform_app/wiki/modules/web_frontend.md`: added curated pointers to the handoff so another agent can continue without rediscovering the lab state.
+- Checks: documentation-only update; `git diff --check` clean after edits.
+
+---
+
 ## [2026-06-13] lab | Web -- LVGL minimal Panel child parents
 
 - `platform_app/web/src/design.ts`: added optional `UiW.parentId` and normalization that keeps it only for non-Panel widgets pointing at a same-screen `Panel`.
