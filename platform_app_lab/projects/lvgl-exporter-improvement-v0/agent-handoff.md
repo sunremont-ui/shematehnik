@@ -6,8 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 10 (project image asset manifest) implemented and verified; not yet committed (see git status).
-- Previous commit: `5d4f4c6 feat(web): add LVGL panel child parents`.
+- Slice 11 (Panel flex main-axis alignment) implemented and verified; commit it together with this handoff update.
+- Slice 10 (project image asset manifest) committed as `eacb611 feat(web): add LVGL project asset manifest`.
 
 Current lab state:
 
@@ -15,7 +15,7 @@ Current lab state:
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
-- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report), Panel flex layout, and same-screen Panel child parents.
+- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, styles, image asset placeholders, project asset manifest (id/src + missing-asset report), Panel flex layout + main-axis align, and same-screen Panel child parents.
 
 ## Current Working Files
 
@@ -48,7 +48,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 10:
+Latest full verification from slice 11:
 
 ```bash
 cd platform_app/web
@@ -61,8 +61,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Targeted Vitest: 57 passed.
-- Full Vitest: 16 files / 144 tests passed.
+- Full Vitest: 16 files / 145 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 
@@ -83,31 +82,31 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Good Next Slice Options
 
-Slice 10 (project asset manifest, id/src declarations + missing-asset report) is done.
-Pick one small vertical slice, write a `slice-11-*.md` plan first, then implement.
+Slice 10 (asset manifest) and slice 11 (Panel flex main-axis align) are done.
+Pick one small vertical slice, write a `slice-12-*.md` plan first, then implement.
 
-1. Binary/file asset pipeline
+1. Cross-axis / track flex alignment
+
+- Extend `Panel.layout` with `crossAlign` and/or `trackAlign`, building on slice 11.
+- Generator fills the 2nd/3rd args of `lv_obj_set_flex_align` (now fixed to START).
+- Keep responsive/auto-reflow out of scope.
+- Tests: no-cross output unchanged and one cross/track alignment fixture.
+
+2. Binary/file asset pipeline
 
 - Build on the slice-10 `UiProjectDesign.assets` manifest `src` field.
 - Add image import + LVGL C array generation for declared assets.
 - Keep it narrow: one format, deterministic output, no folder/skeleton export yet.
 - Tests: array generation for a tiny fixture image, manifest-to-array linkage.
 
-2. Minimal flex alignment metadata
-
-- Extend `Panel.layout` with one or two alignment fields.
-- Keep child auto-placement/responsive behavior out of scope.
-- Generator emits v8 flex alignment calls only for declared metadata.
-- Tests: no-alignment output unchanged and one project-level alignment fixture.
-
 3. Minimal LVGL v9 research-only matrix update
 
 - No code changes.
 - Re-check official LVGL current docs and record exact v9 constructor/screen/style/event differences.
-- Produce a candidate `slice-11-v9-mode.md` with acceptance criteria before implementation.
+- Produce a candidate `slice-12-v9-mode.md` with acceptance criteria before implementation.
 
-Recommended next slice if the user asks to continue implementation: option 2 (flex
-alignment) for the smallest narrow win, or option 1 if a real asset pipeline is wanted.
+Recommended next slice if the user asks to continue implementation: option 1 (cross-axis
+align) as the smallest narrow extension of slice 11.
 
 ## Promotion Checklist For The Next Agent
 

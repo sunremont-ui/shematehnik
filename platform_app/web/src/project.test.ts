@@ -103,7 +103,7 @@ describe("project serialize/deserialize", () => {
               event: { code: "clicked", handler: "on_settings_back", action: { kind: "screen_load", targetScreenId: "main" } },
               style: { bgColor: "#1f6feb", radius: 8 },
             },
-            { id: 2, type: "Panel", x: 8, y: 44, w: 120, h: 48, text: "", layout: { kind: "flex_row", gap: 5 } },
+            { id: 2, type: "Panel", x: 8, y: 44, w: 120, h: 48, text: "", layout: { kind: "flex_row", gap: 5, align: "space_between" } },
             { id: 3, type: "Label", x: 6, y: 6, w: 80, h: 20, text: "Nested", parentId: 2 },
           ],
         },

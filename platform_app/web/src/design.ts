@@ -33,10 +33,11 @@ const finite = (v: unknown, fallback: number): number => {
 export type UiEventCode = "clicked" | "value_changed";
 export type UiEventActionKind = "screen_load";
 export type UiLayoutKind = "flex_row" | "flex_column";
+export type UiFlexAlign = "start" | "center" | "end" | "space_between" | "space_around" | "space_evenly";
 export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string; }
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export interface UiStyle { bgColor?: string; radius?: number; }
-export interface UiLayout { kind: UiLayoutKind; gap?: number; }
+export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export interface UiAsset { id: string; src?: string; }
 export interface UiScreenDesign { id: string; title?: string; widgets: UiW[]; }
@@ -44,6 +45,7 @@ export interface UiProjectDesign { screens: UiScreenDesign[]; initialScreenId?: 
 export const UI_EVENT_CODES: UiEventCode[] = ["clicked", "value_changed"];
 export const UI_EVENT_ACTION_KINDS: UiEventActionKind[] = ["screen_load"];
 export const UI_LAYOUT_KINDS: UiLayoutKind[] = ["flex_row", "flex_column"];
+export const UI_FLEX_ALIGNS: UiFlexAlign[] = ["start", "center", "end", "space_between", "space_around", "space_evenly"];
 export const UI_STYLE_SWATCHES = ["#1f6feb", "#2ea043", "#d29922", "#da3633", "#8957e5", "#30363d"];
 
 const DEFAULT_UI_WIDGETS: UiW[] = [
@@ -140,6 +142,7 @@ function normalizeUiLayout(raw: unknown): { layout?: UiLayout } {
   const layout: UiLayout = { kind };
   const gap = Number(raw.gap);
   if (Number.isFinite(gap)) layout.gap = Math.max(0, Math.round(gap));
+  if (typeof raw.align === "string" && (UI_FLEX_ALIGNS as string[]).includes(raw.align)) layout.align = raw.align as UiFlexAlign;
   return { layout };
 }
 

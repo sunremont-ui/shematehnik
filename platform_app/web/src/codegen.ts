@@ -32,6 +32,14 @@ const LV_FLEX_FLOW: Record<string, string> = {
   flex_row: "LV_FLEX_FLOW_ROW",
   flex_column: "LV_FLEX_FLOW_COLUMN",
 };
+const LV_FLEX_ALIGN: Record<string, string> = {
+  start: "LV_FLEX_ALIGN_START",
+  center: "LV_FLEX_ALIGN_CENTER",
+  end: "LV_FLEX_ALIGN_END",
+  space_between: "LV_FLEX_ALIGN_SPACE_BETWEEN",
+  space_around: "LV_FLEX_ALIGN_SPACE_AROUND",
+  space_evenly: "LV_FLEX_ALIGN_SPACE_EVENLY",
+};
 
 export interface LvglOut { c: string; h: string; }
 export type LvglScreenDesign = UiScreenDesign;
@@ -163,6 +171,8 @@ function emitLayout(out: string[], w: UiW, nm: string) {
   if (!flow) return;
   out.push(`    lv_obj_set_layout(${nm}, LV_LAYOUT_FLEX);`);
   out.push(`    lv_obj_set_flex_flow(${nm}, ${flow});`);
+  const align = w.layout?.align ? LV_FLEX_ALIGN[w.layout.align] : null;
+  if (align) out.push(`    lv_obj_set_flex_align(${nm}, ${align}, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);`);
   const gap = Number(w.layout?.gap);
   if (Number.isFinite(gap)) {
     const n = Math.max(0, Math.round(gap));

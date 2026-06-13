@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, uiProject, type UiEventActionKind, type UiEventCode, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiW as W } from "../design.ts";
+import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiW as W } from "../design.ts";
 import { genLvglProject } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
@@ -168,6 +168,13 @@ export function UiDesignerView() {
                     <input type="number" min={0} value={selected.layout?.gap ?? 0} disabled={!selected.layout}
                       onChange={(e) => selected.layout && setLayout(selected, selected.layout.kind, +e.target.value)} />
                   </label>
+                  <label className="field">Align
+                    <select value={selected.layout?.align ?? ""} disabled={!selected.layout}
+                      onChange={(e) => selected.layout && setLayout(selected, selected.layout.kind, selected.layout.gap, (e.target.value || undefined) as UiFlexAlign | undefined)}>
+                      <option value="">Default</option>
+                      {UI_FLEX_ALIGNS.map((align) => <option key={align} value={align}>{flexAlignLabel(align)}</option>)}
+                    </select>
+                  </label>
                 </>
               )}
               <label className="field">Fill
@@ -256,8 +263,8 @@ export function UiDesignerView() {
     const assetId = raw.trim();
     patch(w.id, { assetId: assetId || undefined });
   }
-  function setLayout(w: W, kind: UiLayoutKind | "", gap = w.layout?.gap ?? 0) {
-    patch(w.id, kind ? { layout: { kind, gap: Math.max(0, Math.round(gap)) } } : { layout: undefined });
+  function setLayout(w: W, kind: UiLayoutKind | "", gap = w.layout?.gap ?? 0, align = w.layout?.align) {
+    patch(w.id, kind ? { layout: { kind, gap: Math.max(0, Math.round(gap)), ...(align ? { align } : {}) } } : { layout: undefined });
   }
   function setParent(w: W, raw: string) {
     const parentId = Number(raw);
@@ -287,6 +294,13 @@ function widgetScreenPos(w: W, widgets: W[]): { x: number; y: number } {
 
 function suggestEventHandler(screenId: string, w: W): string {
   return `on_${screenId}_${w.type}_${w.id}`;
+}
+
+function flexAlignLabel(align: UiFlexAlign): string {
+  return align === "space_between" ? "Space between"
+    : align === "space_around" ? "Space around"
+    : align === "space_evenly" ? "Space evenly"
+    : align.charAt(0).toUpperCase() + align.slice(1);
 }
 
 function layoutLabel(kind: UiLayoutKind): string {

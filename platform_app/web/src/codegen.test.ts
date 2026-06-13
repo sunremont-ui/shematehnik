@@ -115,6 +115,14 @@ describe("genLvgl", () => {
     expect(out.c).toContain("lv_obj_set_flex_flow(ui_Panel_1, LV_FLEX_FLOW_COLUMN);");
     expect(out.c).toContain("lv_obj_set_style_pad_row(ui_Panel_1, 6, LV_PART_MAIN | LV_STATE_DEFAULT);");
     expect(out.c).toContain("lv_obj_set_style_pad_column(ui_Panel_1, 6, LV_PART_MAIN | LV_STATE_DEFAULT);");
+    expect(out.c).not.toContain("lv_obj_set_flex_align");
+  });
+
+  it("emits main-axis flex align only when the layout sets it", () => {
+    const out = genLvgl([
+      { id: 1, type: "Panel", x: 0, y: 0, w: 200, h: 80, text: "", layout: { kind: "flex_row", gap: 4, align: "space_between" } },
+    ], "main");
+    expect(out.c).toContain("lv_obj_set_flex_align(ui_Panel_1, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);");
   });
 
   it("creates child widgets under Panel parents", () => {
