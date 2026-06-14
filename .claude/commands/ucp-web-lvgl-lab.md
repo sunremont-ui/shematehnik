@@ -39,6 +39,7 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/v9-mode-candidate.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-20-zip-export.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-21-pressed-style.md`
+  - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-22-v9-mode.md`
 
 ## Rules
 
@@ -57,7 +58,7 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
 5. Implement the smallest vertical slice.
 6. Promote validated decisions back to wiki/roadmap.
 
-Current slices: LVGL source notes, compatibility matrix, exact single-screen `ui.c/ui.h` golden baseline, `genLvglProject()` multi-screen baseline, UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, extended style tokens (bg/radius/text/border/pad + built-in Montserrat font), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow`, same-screen `Panel` child parents, a verified v9 delta matrix (research), a project-bundle `.zip` export (`src/zip.ts`) and a pressed-state style (`pressedBgColor`) are in place. Read `agent-handoff.md` for the latest continuation snapshot. Prefer LVGL v9 mode implementation, nested/responsive layout work or richer action graph next unless a narrower fixture is requested.
+Current slices: LVGL source notes, compatibility matrix, exact single-screen `ui.c/ui.h` golden baseline, `genLvglProject()` multi-screen baseline, UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, minimal `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, extended style tokens (bg/radius/text/border/pad + built-in Montserrat font), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow`, same-screen `Panel` child parents, a verified v9 delta matrix (research), a project-bundle `.zip` export (`src/zip.ts`), a pressed-state style (`pressedBgColor`) and a `mode: "v8" | "v9"` `LvDialect` (slice 22) are in place. Read `agent-handoff.md` for the latest continuation snapshot. Prefer nested/responsive layout work, a v9 Gauge→scale model or richer action graph next unless a narrower fixture is requested.
 
 ## Validation
 

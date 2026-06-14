@@ -59,7 +59,8 @@ Current status:
 - Default/initial screen name: `main`.
 - Supported widgets are the current UI Designer widget types, mapped to LVGL object creation calls.
 - Export is deterministic and covered by an exact `ui.c/ui.h` golden-output baseline in `codegen.test.ts`, plus cross-module smoke tests.
-- Multi-screen path: `genLvglProject()` accepts `UiProjectDesign` with multiple screens, emits screen-scoped widget globals, per-screen init functions and `ui_init()` with v8 `lv_scr_load(...)`.
+- Multi-screen path: `genLvglProject()` accepts `UiProjectDesign` with multiple screens, emits screen-scoped widget globals, per-screen init functions and `ui_init()` with the dialect screen-load call.
+- v8/v9 mode: `genLvgl`/`genLvglProject`/`genLvglImageAsset` take a `mode: "v8" | "v9"` (default `"v8"`, byte-identical). A `LvDialect` (`makeDialect`) swaps only the verified slice-19 renames in v9: `lv_button_create`/`lv_image_create`/`lv_scale_create` (Gauge), `lv_image_set_src`, `LV_IMAGE_DECLARE`, `lv_image_dsc_t`, `LV_COLOR_FORMAT_RGB565(A8)`, `lv_screen_load`, `lv_obj_remove_flag`, `lv_obj_add_event`. The LVGL Export view exposes a `Target: v8 / v9` toggle. Styles, flex, fonts, positions, colors and event constants are identical in both modes.
 - `.ucp` v2 persists `design.uiProject`; old files that only contain `design.uiDesign` load as one `main` screen.
 - LVGL Export can show Project output or Current screen output, preserving the legacy `genLvgl(widgets, screen)` path.
 - Minimal event model: widgets can store `event` metadata for `clicked` or `value_changed`; generated LVGL v8 C emits callback stubs, optional project-level `screen_load` actions via `lv_scr_load(ui_target)` and `lv_obj_add_event_cb(...)` registrations.

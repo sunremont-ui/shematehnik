@@ -37,7 +37,13 @@ not a rewrite. Styles, flex, fonts, event constants, positions and colors are un
 | Flex: `lv_obj_set_layout`/`set_flex_flow`/`set_flex_align`/`set_flex_grow`, `LV_LAYOUT_FLEX`, `LV_FLEX_FLOW_*`, `LV_FLEX_ALIGN_*`, `lv_obj_set_style_pad_row/column` | same | unchanged | verified (flex unchanged in v9) |
 | Events: `LV_EVENT_CLICKED`, `LV_EVENT_VALUE_CHANGED` | same | unchanged | verified |
 
-Net v9-mode work (candidate `v9-mode-candidate.md`): a small rename map
+Implemented 2026-06-14 (slice 22): a `mode: "v8" | "v9"` `LvDialect` (`makeDialect`) now
+emits these v9 renames; v8 stays the default and byte-identical. Gauge maps to
+`lv_scale_create` without meter-specific config. The medium-confidence renames
+(`clear_flag`->`remove_flag`, `add_event_cb`->`add_event`) are applied but should be
+confirmed against a real v9 build / `lv_api_map_v8.h`.
+
+Original candidate note (`v9-mode-candidate.md`): a small rename map
 (`btn->button`, `img->image`, `scr->screen`, `LV_IMG_DECLARE->LV_IMAGE_DECLARE`,
 `lv_img_dsc_t->lv_image_dsc_t`, `clear_flag->remove_flag`, `add_event_cb->add_event`),
 the image color-format swap (`LV_IMG_CF_*` -> `LV_COLOR_FORMAT_*`), and a decision on the

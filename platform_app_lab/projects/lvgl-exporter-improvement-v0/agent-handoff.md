@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 21 (pressed-state style) implemented and verified; commit it with this handoff update.
+- Slice 22 (LVGL v9 generator mode) implemented and verified; commit it with this handoff update.
+- Slice 21 (pressed-state style) committed as `a92d651 feat(web): add LVGL pressed-state style`.
 - Slice 20 (project bundle .zip export) committed as `74df886 feat(web): LVGL project bundle .zip export`.
 - Slice 19 (LVGL v9 research, no code) committed as `ac8908c docs(web): LVGL v9 research — verified v8->v9 delta matrix`.
 - Slice 18 (built-in Montserrat font size token) committed as `82b1baa feat(web): add LVGL built-in Montserrat font token`.
@@ -20,7 +21,7 @@ Last implementation work:
 
 Current lab state:
 
-- Direct LVGL v8-style C export only.
+- LVGL C export with a `mode: "v8" | "v9"` dialect; v8 is the default and byte-identical, v9 swaps the verified renames (slice 22 / `v9-mode-candidate.md`).
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
@@ -61,7 +62,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 21:
+Latest full verification from slice 22:
 
 ```bash
 cd platform_app/web
@@ -74,7 +75,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Full Vitest: 18 files / 166 tests passed.
+- Full Vitest: 18 files / 169 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 - e2e gotcha: `getByLabel` is a substring match and a select's accessible name includes its selected option text. New style controls (e.g. `Text align`) can collide with layout `Align`; the layout-align selector is now `getByLabel(/^Align/)`. Watch for similar collisions when adding labels.
@@ -89,23 +90,23 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 ## Do Not Reopen Unless Needed
 
 - Do not promise SquareLine `.spj` import/export without a real fixture and primary docs.
-- Do not switch to LVGL v9 naming without a compatibility slice and new golden fixtures.
+- v9 naming lives behind the `mode: "v9"` `LvDialect` (slice 22); keep `"v8"` the default and byte-identical. Do not change v8 dialect strings without updating the golden tests.
 - Do not remove `genLvgl(widgets, screen)`; it is the legacy current-screen export path.
 - Do not remove `uiDesign`; it is the compatibility wrapper for old `.ucp` design data.
 - Do not stage unrelated untracked folders in this checkout.
 
 ## Good Next Slice Options
 
-Slices 10-21 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
+Slices 10-22 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
 hidden/opacity, extended style tokens (text/border/padding + built-in Montserrat font +
 pressed-state), full main/cross/track flex align, per-child flex grow, verified v9 delta
-research (`compatibility-matrix.md` + `v9-mode-candidate.md`), and a project-bundle `.zip`
-export (`src/zip.ts`). Pick one small vertical slice, write a `slice-NN-*.md` plan first.
+research, a project-bundle `.zip` export (`src/zip.ts`), and a `mode: "v8" | "v9"` dialect
+(slice 22). Pick one small vertical slice, write a `slice-NN-*.md` plan first.
 
-1. LVGL v9 mode (implement `v9-mode-candidate.md`, recommended)
+1. Gauge -> v9 scale model
 
-- Behind a `mode: "v8" | "v9"` flag; symbol-rename map + image color-format swap.
-- Add a v9 golden fixture; keep all v8 golden tests byte-identical.
+- In v9 mode, configure the created `lv_scale` (range/ticks) instead of an empty object.
+- Keep v8 Gauge (`lv_meter`) unchanged; tests per mode.
 
 2. Nested / responsive layout
 
@@ -115,8 +116,8 @@ export (`src/zip.ts`). Pick one small vertical slice, write a `slice-NN-*.md` pl
 
 - Actions beyond `screen_load` (set value / toggle hidden / call user fn) in `UiEventAction`.
 
-Recommended next slice: option 1 (LVGL v9 mode) -- the v8 surface is comprehensive and the
-v9 delta is already researched in `v9-mode-candidate.md`.
+Recommended next slice: option 2 (nested layout) for the broadest user value, or option 1 to
+deepen v9 fidelity. Confirm the medium-confidence v9 renames against a real build first.
 
 ## Promotion Checklist For The Next Agent
 

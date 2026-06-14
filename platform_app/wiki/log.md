@@ -4,6 +4,16 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL v9 generator mode
+
+- `platform_app/web/src/codegen.ts`: added `LvMode`/`LvDialect` + `makeDialect` and a `mode: "v8" | "v9"` parameter on `genLvgl`/`genLvglProject` (default `"v8"`). The dialect threads through `emitWidget`/`emitEventHandlers`/`lvEventActionLines`/`emitImageAssetDecls`/`emitProjectImageAssets`/`genLvglImageAsset`. v8 output is byte-identical; v9 swaps the verified slice-19 symbols: `lv_btn_create`->`lv_button_create`, `lv_img_create`->`lv_image_create`, Gauge `lv_meter_create`->`lv_scale_create`, `lv_img_set_src`->`lv_image_set_src`, `LV_IMG_DECLARE`->`LV_IMAGE_DECLARE`, `lv_img_dsc_t`->`lv_image_dsc_t`, `LV_IMG_CF_*`->`LV_COLOR_FORMAT_*`, `lv_scr_load`->`lv_screen_load`, `lv_obj_clear_flag`->`lv_obj_remove_flag`, `lv_obj_add_event_cb`->`lv_obj_add_event`, header comment label.
+- `platform_app/web/src/modules/codegen_exports.tsx`: a `Target: v8 / v9` toggle feeding `mode` into the shown code and the `.zip` bundle.
+- `platform_app/web/src/codegen.test.ts`: a v9 rename test, a v8-default test and a `genLvglImageAsset(..., "v9")` test; existing v8 golden tests unchanged.
+- `platform_app_lab/.../slice-22-v9-mode.md`, `compatibility-matrix.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff, SKILL/command: lab slice and curated docs promoted. Medium-confidence renames (clear_flag/add_event_cb) flagged to confirm vs `lv_api_map_v8.h`; Gauge->scale has no meter-specific config yet.
+- Checks: `npm.cmd test` -- 18 files / 169 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (via `node node_modules/@playwright/test/cli.js`).
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL pressed-state style
 
 - `platform_app/web/src/design.ts`: added `UiStyle.pressedBgColor` (valid hex), normalized alongside the other style tokens.

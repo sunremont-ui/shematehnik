@@ -5,7 +5,7 @@ import { PanelHead } from "./common.tsx";
 import { uiProject, type UiAsset } from "../design.ts";
 import { packet } from "../design.ts";
 import { rgbaToRgb565, rgbaToRgb565a8 } from "../image.ts";
-import { genLvgl, genLvglProject, genLvglReadme, genProtoParser, genBlink } from "../codegen.ts";
+import { genLvgl, genLvglProject, genLvglReadme, genProtoParser, genBlink, type LvMode } from "../codegen.ts";
 import { downloadText, downloadBlob } from "../util.ts";
 import { zipStore } from "../zip.ts";
 
@@ -84,12 +84,13 @@ export function LvglExportView() {
   const project = uiProject.use();
   const [file, setFile] = useState<"c" | "h">("c");
   const [mode, setMode] = useState<"project" | "screen">("project");
+  const [target, setTarget] = useState<LvMode>("v8");
   const active = project.screens.find((s) => s.id === project.initialScreenId) ?? project.screens[0] ?? { id: "main", widgets: [] };
-  const gen = mode === "project" ? genLvglProject(project) : genLvgl(active.widgets, active.id);
+  const gen = mode === "project" ? genLvglProject(project, target) : genLvgl(active.widgets, active.id, target);
   const code = file === "c" ? gen.c : gen.h;
   const widgets = project.screens.reduce((sum, screen) => sum + screen.widgets.length, 0);
   const downloadZip = () => {
-    const proj = genLvglProject(project);
+    const proj = genLvglProject(project, target);
     const zip = zipStore([
       { name: "ui.c", data: proj.c },
       { name: "ui.h", data: proj.h },
@@ -104,6 +105,9 @@ export function LvglExportView() {
       <span className="muted">Mode:</span>
       <button className={`btn${mode === "project" ? " primary" : ""}`} onClick={() => setMode("project")}>Project</button>
       <button className={`btn${mode === "screen" ? " primary" : ""}`} onClick={() => setMode("screen")}>Current screen</button>
+      <span className="muted">Target:</span>
+      <button className={`btn${target === "v8" ? " primary" : ""}`} onClick={() => setTarget("v8")}>v8</button>
+      <button className={`btn${target === "v9" ? " primary" : ""}`} onClick={() => setTarget("v9")}>v9</button>
       <button className="btn" title="Download ui.c + ui.h + README as a .zip" onClick={downloadZip}>Download .zip</button>
       <span className="chip" style={{ marginLeft: "auto" }}><span className="dot ok" />{project.screens.length} screens / {widgets} widgets из UI Designer</span>
       {mode === "project" && <AssetManifest assets={project.assets ?? []} />}

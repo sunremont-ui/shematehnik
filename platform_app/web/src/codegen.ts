@@ -18,13 +18,38 @@ const escC = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
   .replace(/[^\x20-\x7E]/g, (ch) => "\\u" + ch.charCodeAt(0).toString(16).toUpperCase().padStart(4, "0"));
 
 // LVGL-конструктор по типу виджета (v8 API).
-const LV_CREATE: Record<string, string> = {
+const LV_CREATE_V8: Record<string, string> = {
   Button: "lv_btn_create", Label: "lv_label_create", Slider: "lv_slider_create",
   Switch: "lv_switch_create", Arc: "lv_arc_create", Chart: "lv_chart_create",
   Gauge: "lv_meter_create", Bar: "lv_bar_create", Panel: "lv_obj_create",
   Dropdown: "lv_dropdown_create", Checkbox: "lv_checkbox_create", Roller: "lv_roller_create",
   TextArea: "lv_textarea_create", Image: "lv_img_create", NavList: "lv_list_create",
 };
+
+// Диалект API: различия v8/v9 — карта переименований из верифицированной матрицы (слайс 19).
+// v8 — дефолт; v9 меняет только подтверждённые символы, остальное идентично.
+export type LvMode = "v8" | "v9";
+interface LvDialect {
+  mode: LvMode; label: string; create: Record<string, string>;
+  imgDeclare: string; imgDscT: string; imgSetSrc: string;
+  cf: (alpha: boolean) => string; screenLoad: string; addEvent: string; removeFlag: string;
+}
+
+function makeDialect(mode: LvMode): LvDialect {
+  if (mode === "v9") return {
+    mode, label: "LVGL v9",
+    create: { ...LV_CREATE_V8, Button: "lv_button_create", Image: "lv_image_create", Gauge: "lv_scale_create" },
+    imgDeclare: "LV_IMAGE_DECLARE", imgDscT: "lv_image_dsc_t", imgSetSrc: "lv_image_set_src",
+    cf: (a) => a ? "LV_COLOR_FORMAT_RGB565A8" : "LV_COLOR_FORMAT_RGB565",
+    screenLoad: "lv_screen_load", addEvent: "lv_obj_add_event", removeFlag: "lv_obj_remove_flag",
+  };
+  return {
+    mode, label: "LVGL v8", create: LV_CREATE_V8,
+    imgDeclare: "LV_IMG_DECLARE", imgDscT: "lv_img_dsc_t", imgSetSrc: "lv_img_set_src",
+    cf: (a) => a ? "LV_IMG_CF_TRUE_COLOR_ALPHA" : "LV_IMG_CF_TRUE_COLOR",
+    screenLoad: "lv_scr_load", addEvent: "lv_obj_add_event_cb", removeFlag: "lv_obj_clear_flag",
+  };
+}
 const LV_EVENT: Record<string, string> = {
   clicked: "LV_EVENT_CLICKED",
   value_changed: "LV_EVENT_VALUE_CHANGED",
@@ -61,18 +86,18 @@ function lvEventFor(w: UiW): { fn: string; code: string; action?: UiEventAction 
   };
 }
 
-function lvEventActionLines(action: UiEventAction | undefined, resolveScreen?: ScreenVarResolver): string[] {
+function lvEventActionLines(action: UiEventAction | undefined, d: LvDialect, resolveScreen?: ScreenVarResolver): string[] {
   if (!action) return ["    /* TODO: user action */"];
   if (action.kind === "screen_load") {
     const target = resolveScreen?.(action.targetScreenId.trim());
     return target
-      ? [`    lv_scr_load(${target});`]
+      ? [`    ${d.screenLoad}(${target});`]
       : ["    /* TODO: screen_load target is unavailable in this export mode */"];
   }
   return ["    /* TODO: user action */"];
 }
 
-function emitEventHandlers(out: string[], widgets: UiW[], resolveScreen?: ScreenVarResolver) {
+function emitEventHandlers(out: string[], widgets: UiW[], d: LvDialect, resolveScreen?: ScreenVarResolver) {
   const emitted = new Set<string>();
   for (const w of widgets) {
     const ev = lvEventFor(w);
@@ -80,7 +105,7 @@ function emitEventHandlers(out: string[], widgets: UiW[], resolveScreen?: Screen
     emitted.add(ev.fn);
     out.push(`static void ${ev.fn}(lv_event_t *e) {`);
     out.push("    (void)e;");
-    out.push(...lvEventActionLines(ev.action, resolveScreen));
+    out.push(...lvEventActionLines(ev.action, d, resolveScreen));
     out.push("}", "");
   }
 }
@@ -128,19 +153,20 @@ function usedImageAssets(widgets: UiW[]): string[] {
   return used;
 }
 
-function emitImageAssetDecls(out: string[], widgets: UiW[]) {
+function emitImageAssetDecls(out: string[], widgets: UiW[], d: LvDialect) {
   const used = usedImageAssets(widgets);
-  for (const asset of used) out.push(`LV_IMG_DECLARE(${asset});`);
+  for (const asset of used) out.push(`${d.imgDeclare}(${asset});`);
   if (used.length) out.push("");
 }
 
-// Инлайн LVGL-дескриптор изображения (RGB565, LV_IMG_CF_TRUE_COLOR) из пикселей
-// манифеста. Возвращает null, если валидных пикселей нет (тогда — LV_IMG_DECLARE).
-export function genLvglImageAsset(asset: UiAsset): string | null {
+// Инлайн LVGL-дескриптор изображения из пикселей манифеста (RGB565 / RGB565A8).
+// Возвращает null, если валидных пикселей нет (тогда — *_DECLARE). mode выбирает диалект.
+export function genLvglImageAsset(asset: UiAsset, mode: LvMode = "v8"): string | null {
   if (!hasInlinePixels(asset)) return null;
+  const d = makeDialect(mode);
   const id = cident(asset.id.trim(), "ui_image_asset");
   const data = asset.data!;
-  const cf = asset.format === "rgb565a8" ? "LV_IMG_CF_TRUE_COLOR_ALPHA" : "LV_IMG_CF_TRUE_COLOR";
+  const cf = d.cf(asset.format === "rgb565a8");
   const bytes = data.map((b) => `0x${(b & 0xFF).toString(16).toUpperCase().padStart(2, "0")}`);
   const rows: string[] = [];
   for (let i = 0; i < bytes.length; i += 12) rows.push("    " + bytes.slice(i, i + 12).join(", ") + ",");
@@ -148,7 +174,7 @@ export function genLvglImageAsset(asset: UiAsset): string | null {
     `static const uint8_t ${id}_map[] = {`,
     ...rows,
     `};`,
-    `const lv_img_dsc_t ${id} = {`,
+    `const ${d.imgDscT} ${id} = {`,
     `    .header.cf = ${cf},`,
     `    .header.w = ${asset.w},`,
     `    .header.h = ${asset.h},`,
@@ -161,7 +187,7 @@ export function genLvglImageAsset(asset: UiAsset): string | null {
 // Project-level image assets: emit inline descriptors for manifest assets that carry
 // pixel data, declare the rest (manifest + used widgets), and report used-but-undeclared
 // references. With an empty manifest, output matches emitImageAssetDecls (legacy).
-function emitProjectImageAssets(out: string[], widgets: UiW[], assets: UiAsset[]) {
+function emitProjectImageAssets(out: string[], widgets: UiW[], assets: UiAsset[], d: LvDialect) {
   const manifest = new Map<string, UiAsset>();
   for (const a of assets) {
     const id = cident(a.id.trim(), "");
@@ -170,20 +196,20 @@ function emitProjectImageAssets(out: string[], widgets: UiW[], assets: UiAsset[]
   }
   const used = usedImageAssets(widgets);
   if (manifest.size === 0) {
-    emitImageAssetDecls(out, widgets);
+    emitImageAssetDecls(out, widgets, d);
     return;
   }
   const emitted = new Set<string>();
   for (const [id, asset] of manifest) {
-    const dsc = genLvglImageAsset(asset);
+    const dsc = genLvglImageAsset(asset, d.mode);
     if (dsc) out.push(dsc, "");
-    else out.push(`LV_IMG_DECLARE(${id});${asset.src?.trim() ? ` // src: ${asset.src.trim()}` : ""}`);
+    else out.push(`${d.imgDeclare}(${id});${asset.src?.trim() ? ` // src: ${asset.src.trim()}` : ""}`);
     emitted.add(id);
   }
   for (const id of used) {
     if (emitted.has(id)) continue;
     emitted.add(id);
-    out.push(`LV_IMG_DECLARE(${id});`);
+    out.push(`${d.imgDeclare}(${id});`);
   }
   for (const id of used) {
     if (!manifest.has(id)) out.push(`/* TODO: image asset "${id}" is used but not declared in the project asset manifest */`);
@@ -256,8 +282,8 @@ function emitLayout(out: string[], w: UiW, nm: string) {
   }
 }
 
-function emitWidget(out: string[], w: UiW, nm: string, parent: string) {
-  const ctor = LV_CREATE[w.type] ?? "lv_obj_create";
+function emitWidget(out: string[], w: UiW, nm: string, parent: string, d: LvDialect) {
+  const ctor = d.create[w.type] ?? "lv_obj_create";
   out.push("", `    ${nm} = ${ctor}(${parent});`);
   out.push(`    lv_obj_set_pos(${nm}, ${Math.round(w.x)}, ${Math.round(w.y)});`);
   out.push(`    lv_obj_set_size(${nm}, ${Math.round(w.w)}, ${Math.round(w.h)});`);
@@ -273,8 +299,8 @@ function emitWidget(out: string[], w: UiW, nm: string, parent: string) {
   else if (w.type === "TextArea") out.push(`    lv_textarea_set_text(${nm}, "${escC(w.text)}");`);
   else if (w.type === "Image") {
     const asset = lvImageAssetFor(w);
-    if (asset) out.push(`    lv_img_set_src(${nm}, &${asset});`);
-    else out.push(`    /* TODO: assign assetId to emit lv_img_set_src(${nm}, &asset); */`);
+    if (asset) out.push(`    ${d.imgSetSrc}(${nm}, &${asset});`);
+    else out.push(`    /* TODO: assign assetId to emit ${d.imgSetSrc}(${nm}, &asset); */`);
   }
   else if (w.type === "Dropdown" || w.type === "Roller")
     out.push(`    ${w.type === "Dropdown" ? "lv_dropdown_set_options" : "lv_roller_set_options"}(${nm}, "${escC(w.text || "A\\nB\\nC")}"${w.type === "Roller" ? ", LV_ROLLER_MODE_NORMAL" : ""});`);
@@ -284,7 +310,7 @@ function emitWidget(out: string[], w: UiW, nm: string, parent: string) {
   if (w.hidden) out.push(`    lv_obj_add_flag(${nm}, LV_OBJ_FLAG_HIDDEN);`);
   if (Number.isFinite(w.opa)) out.push(`    lv_obj_set_style_opa(${nm}, ${Math.round(w.opa!)}, LV_PART_MAIN | LV_STATE_DEFAULT);`);
   const ev = lvEventFor(w);
-  if (ev) out.push(`    lv_obj_add_event_cb(${nm}, ${ev.fn}, ${ev.code}, NULL);`);
+  if (ev) out.push(`    ${d.addEvent}(${nm}, ${ev.fn}, ${ev.code}, NULL);`);
 }
 
 // Генерирует ui.c/ui.h для одного экрана из реальных виджетов.
@@ -321,7 +347,8 @@ function parentNameFor(w: UiW, byId: Map<number, UiW>, names: Map<number, string
   return parentId === null ? screenName : names.get(parentId) ?? screenName;
 }
 
-export function genLvgl(widgets: UiW[], screen = "main"): LvglOut {
+export function genLvgl(widgets: UiW[], screen = "main", mode: LvMode = "v8"): LvglOut {
+  const d = makeDialect(mode);
   const scr = cident(screen, "main");
   const names = new Map<number, string>();
   const used = new Set<string>();
@@ -335,21 +362,21 @@ export function genLvgl(widgets: UiW[], screen = "main"): LvglOut {
   }
 
   const c: string[] = [];
-  c.push(`// ui_${scr}.c — generated by UCP UI Designer (LVGL v8)`);
+  c.push(`// ui_${scr}.c — generated by UCP UI Designer (${d.label})`);
   c.push(`#include "ui.h"`, "");
-  emitImageAssetDecls(c, widgets);
+  emitImageAssetDecls(c, widgets, d);
   emitStyleDecls(c, widgets.map((w) => ({ w, nm: names.get(w.id)! })));
   c.push(`lv_obj_t *ui_${scr};`);
   for (const w of widgets) c.push(`lv_obj_t *${names.get(w.id)};`);
-  emitEventHandlers(c, widgets, (target) => {
+  emitEventHandlers(c, widgets, d, (target) => {
     const id = cident(target, "");
     return target === screen || id === scr ? `ui_${scr}` : null;
   });
   c.push("", `void ui_${scr}_screen_init(void) {`);
   c.push(`    ui_${scr} = lv_obj_create(NULL);`);
-  c.push(`    lv_obj_clear_flag(ui_${scr}, LV_OBJ_FLAG_SCROLLABLE);`);
+  c.push(`    ${d.removeFlag}(ui_${scr}, LV_OBJ_FLAG_SCROLLABLE);`);
   for (const w of orderedWidgets) {
-    emitWidget(c, w, names.get(w.id)!, parentNameFor(w, byId, names, `ui_${scr}`));
+    emitWidget(c, w, names.get(w.id)!, parentNameFor(w, byId, names, `ui_${scr}`), d);
   }
   c.push("}", "");
 
@@ -362,7 +389,8 @@ export function genLvgl(widgets: UiW[], screen = "main"): LvglOut {
   return { c: c.join("\n"), h: h.join("\n") };
 }
 
-export function genLvglProject(project: LvglProjectDesign): LvglOut {
+export function genLvglProject(project: LvglProjectDesign, mode: LvMode = "v8"): LvglOut {
+  const d = makeDialect(mode);
   const rawScreens = project.screens.length ? project.screens : [{ id: "main", widgets: [] }];
   const usedScreens = new Set<string>();
   const screens = rawScreens.map((screen, i) => {
@@ -387,9 +415,9 @@ export function genLvglProject(project: LvglProjectDesign): LvglOut {
     namesByScreen.set(screen.id, names);
   }
   const c: string[] = [];
-  c.push(`// ui.c — generated by UCP UI Designer (LVGL v8 multi-screen)`);
+  c.push(`// ui.c — generated by UCP UI Designer (${d.label} multi-screen)`);
   c.push(`#include "ui.h"`, "");
-  emitProjectImageAssets(c, screens.flatMap((screen) => screen.widgets), project.assets ?? []);
+  emitProjectImageAssets(c, screens.flatMap((screen) => screen.widgets), project.assets ?? [], d);
   emitStyleDecls(c, screens.flatMap((screen) => screen.widgets.map((w) => ({ w, nm: namesByScreen.get(screen.id)!.get(w.id)! }))));
   for (const screen of screens) {
     c.push(`lv_obj_t *ui_${screen.id};`);
@@ -400,21 +428,21 @@ export function genLvglProject(project: LvglProjectDesign): LvglOut {
     screenVarById.set(screen.rawId, `ui_${screen.id}`);
     screenVarById.set(screen.id, `ui_${screen.id}`);
   }
-  emitEventHandlers(c, screens.flatMap((screen) => screen.widgets), (target) => (
+  emitEventHandlers(c, screens.flatMap((screen) => screen.widgets), d, (target) => (
     screenVarById.get(target) ?? screenVarById.get(cident(target, target)) ?? null
   ));
   for (const screen of screens) {
     c.push("", `void ui_${screen.id}_screen_init(void) {`);
     c.push(`    ui_${screen.id} = lv_obj_create(NULL);`);
-    c.push(`    lv_obj_clear_flag(ui_${screen.id}, LV_OBJ_FLAG_SCROLLABLE);`);
+    c.push(`    ${d.removeFlag}(ui_${screen.id}, LV_OBJ_FLAG_SCROLLABLE);`);
     const names = namesByScreen.get(screen.id)!;
     const byId = widgetsById(screen.widgets);
-    for (const w of orderWidgetsForLvgl(screen.widgets)) emitWidget(c, w, names.get(w.id)!, parentNameFor(w, byId, names, `ui_${screen.id}`));
+    for (const w of orderWidgetsForLvgl(screen.widgets)) emitWidget(c, w, names.get(w.id)!, parentNameFor(w, byId, names, `ui_${screen.id}`), d);
     c.push("}");
   }
   c.push("", "void ui_init(void) {");
   for (const screen of screens) c.push(`    ui_${screen.id}_screen_init();`);
-  c.push(`    lv_scr_load(ui_${initial.id});`);
+  c.push(`    ${d.screenLoad}(ui_${initial.id});`);
   c.push("}", "");
 
   const h: string[] = [];

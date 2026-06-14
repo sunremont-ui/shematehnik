@@ -370,6 +370,52 @@ describe("genLvglProject", () => {
     expect(readme).toContain("ui_init();");
   });
 
+  it("renames symbols in v9 mode (verified v8->v9 deltas)", () => {
+    const { c } = genLvglProject({
+      initialScreenId: "main",
+      assets: [{ id: "img_px", w: 2, h: 1, format: "rgb565a8", data: [0, 0, 0, 0, 0, 0] }],
+      screens: [
+        {
+          id: "main",
+          widgets: [
+            { id: 1, type: "Button", x: 0, y: 0, w: 80, h: 30, text: "Go", event: { code: "clicked", handler: "on_go", action: { kind: "screen_load", targetScreenId: "settings" } } },
+            { id: 2, type: "Image", x: 0, y: 40, w: 32, h: 32, text: "", assetId: "img_px" },
+            { id: 3, type: "Gauge", x: 0, y: 80, w: 40, h: 40, text: "" },
+          ],
+        },
+        { id: "settings", widgets: [] },
+      ],
+    }, "v9");
+    expect(c).toContain("(LVGL v9 multi-screen)");
+    expect(c).toContain("lv_button_create(ui_main)");
+    expect(c).toContain("lv_image_create(ui_main)");
+    expect(c).toContain("lv_scale_create(ui_main)");
+    expect(c).toContain("lv_image_set_src(ui_main_Image_2, &img_px);");
+    expect(c).toContain("const lv_image_dsc_t img_px = {");
+    expect(c).toContain(".header.cf = LV_COLOR_FORMAT_RGB565A8,");
+    expect(c).toContain("lv_obj_remove_flag(ui_main, LV_OBJ_FLAG_SCROLLABLE);");
+    expect(c).toContain("lv_obj_add_event(ui_main_Button_1, on_go, LV_EVENT_CLICKED, NULL);");
+    expect(c).toContain("lv_screen_load(ui_settings);");
+    // no v8 names leaked
+    expect(c).not.toContain("lv_btn_create");
+    expect(c).not.toContain("lv_img_create");
+    expect(c).not.toContain("lv_scr_load");
+    expect(c).not.toContain("LV_IMG_CF_");
+  });
+
+  it("v8 mode is the default and keeps v8 names", () => {
+    const { c } = genLvglProject({ initialScreenId: "main", screens: [{ id: "main", widgets: [{ id: 1, type: "Button", x: 0, y: 0, w: 80, h: 30, text: "Go" }] }] });
+    expect(c).toContain("lv_btn_create(ui_main)");
+    expect(c).toContain("lv_scr_load(ui_main);");
+    expect(c).not.toContain("lv_button_create");
+  });
+
+  it("genLvglImageAsset uses v9 descriptor names in v9 mode", () => {
+    const dsc = genLvglImageAsset({ id: "img_a", w: 1, h: 1, format: "rgb565", data: [0x1F, 0x00] }, "v9");
+    expect(dsc).toContain("const lv_image_dsc_t img_a = {");
+    expect(dsc).toContain(".header.cf = LV_COLOR_FORMAT_RGB565,");
+  });
+
   it("deduplicates project-level image asset declarations across screens", () => {
     const { c } = genLvglProject({
       initialScreenId: "main",

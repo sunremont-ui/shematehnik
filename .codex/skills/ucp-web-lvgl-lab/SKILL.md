@@ -42,6 +42,7 @@ Use this skill for research-first LVGL exporter work after roadmap phase 17.
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/v9-mode-candidate.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-20-zip-export.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-21-pressed-style.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-22-v9-mode.md`
    - `platform_app/web/src/design.ts`
    - `platform_app/web/src/codegen.ts`
    - `platform_app/web/src/modules/UiDesignerView.tsx`
@@ -85,5 +86,5 @@ Manual UI smoke:
 
 - Current exporter has a backward-compatible single-screen path and a persisted multi-screen `uiProject` path.
 - Use `agent-handoff.md` as the compact continuation snapshot before choosing the next slice.
-- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, extended style tokens (bg/radius/text-color/text-align/border/pad + built-in Montserrat font), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow`, same-screen `Panel` child parents, a verified v9 delta matrix (research), a project-bundle `.zip` export (`src/zip.ts`) and a pressed-state style (`pressedBgColor`) are in place; richer action graphs, imported fonts, more per-state tokens, nested/responsive layouts and LVGL v9 mode implementation are still pending.
+- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, extended style tokens (bg/radius/text-color/text-align/border/pad + built-in Montserrat font), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow`, same-screen `Panel` child parents, a verified v9 delta matrix (research), a project-bundle `.zip` export (`src/zip.ts`), a pressed-state style (`pressedBgColor`) and a `mode: "v8" | "v9"` `LvDialect` (slice 22) are in place; richer action graphs, imported fonts, more per-state tokens, a v9 Gauge→scale model and nested/responsive layouts are still pending.
 - Do not mix SquareLine import promises with direct LVGL export work unless a real `.spj` or generated SquareLine project fixture is in the lab.
