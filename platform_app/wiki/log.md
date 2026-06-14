@@ -4,6 +4,18 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL extended style tokens (text, border, padding)
+
+- `platform_app/web/src/design.ts`: extended `UiStyle` with `textColor`/`textAlign`/`borderWidth`/`borderColor`/`pad` (+ `UiTextAlign`/`UI_TEXT_ALIGNS`), strictly normalized (valid hex; enum; ints >= 1); shared `hexColor` helper.
+- `platform_app/web/src/codegen.ts`: added `LV_TEXT_ALIGN`, restructured `lvStyleFor` into a full `LvStyle` and extended `emitStyleAttach` to emit `lv_style_set_text_color/text_align/border_width/border_color/pad_all` when set. No tokens -> no style (slice-05 output preserved).
+- `platform_app/web/src/modules/UiDesignerView.tsx`: style panel gained Text color / Text align / Border / Border color / Padding controls.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`: full-token emission, token-free no-style and `.ucp` v2 round-trip.
+- `platform_app/web/e2e/smoke.spec.ts`: the new `Text align` control made `getByLabel("Align")` ambiguous; switched the layout-align selector to `getByLabel(/^Align/)` (a select's accessible name includes its selected option text).
+- `platform_app_lab/.../slice-17-style-tokens.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff, SKILL/command: lab slice and curated docs promoted; custom fonts, per-state styles, gradients/shadows and per-side padding remain deferred.
+- Checks: `npm.cmd test` -- 17 files / 159 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (via `node node_modules/@playwright/test/cli.js`).
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL widget hidden flag and opacity
 
 - `platform_app/web/src/design.ts`: added optional `UiW.hidden` (kept only when `true`) and `UiW.opa` (kept only for `0 <= n < 255`, since 255 is the opaque default).

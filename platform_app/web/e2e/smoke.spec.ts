@@ -152,7 +152,7 @@ test.describe("UCP web smoke", () => {
     await page.getByRole("button", { name: "Panel", exact: true }).click();
     await page.getByLabel("Layout").selectOption("flex_row");
     await page.getByLabel("Gap").fill("4");
-    await page.getByLabel("Align").selectOption("space_between");
+    await page.getByLabel(/^Align/).selectOption("space_between");
     await page.getByLabel("Cross").selectOption("center");
     await page.getByRole("button", { name: "Label", exact: true }).click();
     await page.getByLabel("Parent panel").selectOption("7");

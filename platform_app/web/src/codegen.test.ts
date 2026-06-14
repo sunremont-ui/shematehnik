@@ -94,6 +94,25 @@ describe("genLvgl", () => {
     expect(out.c).toContain("lv_obj_add_style(ui_Button_1, &ui_Button_1_style, LV_PART_MAIN | LV_STATE_DEFAULT);");
   });
 
+  it("emits extended style tokens (text, border, padding) only when set", () => {
+    const out = genLvgl([
+      { id: 1, type: "Label", x: 0, y: 0, w: 100, h: 28, text: "Hi", style: { textColor: "#ff8800", textAlign: "center", borderWidth: 2, borderColor: "#101820", pad: 6 } },
+    ], "main");
+    expect(out.c).toContain("lv_style_set_text_color(&ui_Label_1_style, lv_color_hex(0xFF8800));");
+    expect(out.c).toContain("lv_style_set_text_align(&ui_Label_1_style, LV_TEXT_ALIGN_CENTER);");
+    expect(out.c).toContain("lv_style_set_border_width(&ui_Label_1_style, 2);");
+    expect(out.c).toContain("lv_style_set_border_color(&ui_Label_1_style, lv_color_hex(0x101820));");
+    expect(out.c).toContain("lv_style_set_pad_all(&ui_Label_1_style, 6);");
+    // bg/radius not set -> not emitted for this widget
+    expect(out.c).not.toContain("lv_style_set_bg_color(&ui_Label_1_style");
+    expect(out.c).not.toContain("lv_style_set_radius(&ui_Label_1_style");
+  });
+
+  it("leaves a token-free widget without any lv_style call", () => {
+    const out = genLvgl([{ id: 1, type: "Label", x: 0, y: 0, w: 100, h: 28, text: "Hi" }], "main");
+    expect(out.c).not.toContain("lv_style_");
+  });
+
   it("generates LVGL image asset declarations and explicit missing-asset TODOs", () => {
     const withAsset = genLvgl([
       { id: 1, type: "Image", x: 12, y: 16, w: 64, h: 64, text: "", assetId: "img_logo" },

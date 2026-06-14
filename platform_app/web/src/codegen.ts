@@ -33,6 +33,11 @@ const LV_FLEX_FLOW: Record<string, string> = {
   flex_row: "LV_FLEX_FLOW_ROW",
   flex_column: "LV_FLEX_FLOW_COLUMN",
 };
+const LV_TEXT_ALIGN: Record<string, string> = {
+  left: "LV_TEXT_ALIGN_LEFT",
+  center: "LV_TEXT_ALIGN_CENTER",
+  right: "LV_TEXT_ALIGN_RIGHT",
+};
 const LV_FLEX_ALIGN: Record<string, string> = {
   start: "LV_FLEX_ALIGN_START",
   center: "LV_FLEX_ALIGN_CENTER",
@@ -80,10 +85,28 @@ function emitEventHandlers(out: string[], widgets: UiW[], resolveScreen?: Screen
   }
 }
 
-function lvStyleFor(w: UiW): { bgColor: string | null; radius: number | null } | null {
-  const bgColor = /^#[0-9A-Fa-f]{6}$/.test(w.style?.bgColor ?? "") ? w.style!.bgColor!.slice(1).toUpperCase() : null;
-  const radius = Number.isFinite(w.style?.radius) ? Math.max(0, Math.round(w.style!.radius!)) : null;
-  return bgColor || radius !== null ? { bgColor, radius } : null;
+interface LvStyle {
+  bgColor: string | null; radius: number | null;
+  textColor: string | null; textAlign: string | null;
+  borderWidth: number | null; borderColor: string | null; pad: number | null;
+}
+
+function lvStyleFor(w: UiW): LvStyle | null {
+  const s = w.style;
+  const hex = (v?: string) => /^#[0-9A-Fa-f]{6}$/.test(v ?? "") ? v!.slice(1).toUpperCase() : null;
+  const intMin1 = (v?: number) => Number.isFinite(v) && (v ?? 0) >= 1 ? Math.round(v!) : null;
+  const style: LvStyle = {
+    bgColor: hex(s?.bgColor),
+    radius: Number.isFinite(s?.radius) ? Math.max(0, Math.round(s!.radius!)) : null,
+    textColor: hex(s?.textColor),
+    textAlign: LV_TEXT_ALIGN[s?.textAlign ?? ""] ?? null,
+    borderWidth: intMin1(s?.borderWidth),
+    borderColor: hex(s?.borderColor),
+    pad: intMin1(s?.pad),
+  };
+  const any = style.bgColor || style.radius !== null || style.textColor || style.textAlign
+    || style.borderWidth !== null || style.borderColor || style.pad !== null;
+  return any ? style : null;
 }
 
 function lvImageAssetFor(w: UiW): string | null {
@@ -190,6 +213,11 @@ function emitStyleAttach(out: string[], w: UiW, nm: string) {
     out.push(`    lv_style_set_bg_opa(&${sn}, LV_OPA_COVER);`);
   }
   if (style.radius !== null) out.push(`    lv_style_set_radius(&${sn}, ${style.radius});`);
+  if (style.textColor) out.push(`    lv_style_set_text_color(&${sn}, lv_color_hex(0x${style.textColor}));`);
+  if (style.textAlign) out.push(`    lv_style_set_text_align(&${sn}, ${style.textAlign});`);
+  if (style.borderWidth !== null) out.push(`    lv_style_set_border_width(&${sn}, ${style.borderWidth});`);
+  if (style.borderColor) out.push(`    lv_style_set_border_color(&${sn}, lv_color_hex(0x${style.borderColor}));`);
+  if (style.pad !== null) out.push(`    lv_style_set_pad_all(&${sn}, ${style.pad});`);
   out.push(`    lv_obj_add_style(${nm}, &${sn}, LV_PART_MAIN | LV_STATE_DEFAULT);`);
 }
 

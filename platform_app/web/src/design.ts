@@ -36,7 +36,8 @@ export type UiLayoutKind = "flex_row" | "flex_column";
 export type UiFlexAlign = "start" | "center" | "end" | "space_between" | "space_around" | "space_evenly";
 export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string; }
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
-export interface UiStyle { bgColor?: string; radius?: number; }
+export type UiTextAlign = "left" | "center" | "right";
+export interface UiStyle { bgColor?: string; radius?: number; textColor?: string; textAlign?: UiTextAlign; borderWidth?: number; borderColor?: string; pad?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; hidden?: boolean; opa?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export type UiAssetFormat = "rgb565" | "rgb565a8";
@@ -47,6 +48,7 @@ export const UI_EVENT_CODES: UiEventCode[] = ["clicked", "value_changed"];
 export const UI_EVENT_ACTION_KINDS: UiEventActionKind[] = ["screen_load"];
 export const UI_LAYOUT_KINDS: UiLayoutKind[] = ["flex_row", "flex_column"];
 export const UI_FLEX_ALIGNS: UiFlexAlign[] = ["start", "center", "end", "space_between", "space_around", "space_evenly"];
+export const UI_TEXT_ALIGNS: UiTextAlign[] = ["left", "center", "right"];
 export const UI_STYLE_SWATCHES = ["#1f6feb", "#2ea043", "#d29922", "#da3633", "#8957e5", "#30363d"];
 
 const DEFAULT_UI_WIDGETS: UiW[] = [
@@ -148,12 +150,22 @@ function normalizeUiEventAction(raw: unknown): { action?: UiEventAction } {
   return kind && targetScreenId ? { action: { kind, targetScreenId } } : {};
 }
 
+const hexColor = (v: unknown): string | null =>
+  typeof v === "string" && /^#[0-9A-Fa-f]{6}$/.test(v.trim()) ? v.trim() : null;
+
 function normalizeUiStyle(raw: unknown): { style?: UiStyle } {
   if (!obj(raw)) return {};
   const style: UiStyle = {};
-  if (typeof raw.bgColor === "string" && /^#[0-9A-Fa-f]{6}$/.test(raw.bgColor.trim())) style.bgColor = raw.bgColor.trim();
+  const bg = hexColor(raw.bgColor); if (bg) style.bgColor = bg;
   const radius = Number(raw.radius);
   if (Number.isFinite(radius)) style.radius = Math.max(0, Math.round(radius));
+  const textColor = hexColor(raw.textColor); if (textColor) style.textColor = textColor;
+  if (raw.textAlign === "left" || raw.textAlign === "center" || raw.textAlign === "right") style.textAlign = raw.textAlign;
+  const borderWidth = Number(raw.borderWidth);
+  if (Number.isFinite(borderWidth) && borderWidth >= 1) style.borderWidth = Math.round(borderWidth);
+  const borderColor = hexColor(raw.borderColor); if (borderColor) style.borderColor = borderColor;
+  const pad = Number(raw.pad);
+  if (Number.isFinite(pad) && pad >= 1) style.pad = Math.round(pad);
   return Object.keys(style).length ? { style } : {};
 }
 

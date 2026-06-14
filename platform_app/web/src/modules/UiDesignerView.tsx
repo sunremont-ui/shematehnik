@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayout, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiW as W } from "../design.ts";
+import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, UI_TEXT_ALIGNS, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayout, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiTextAlign, type UiW as W } from "../design.ts";
 import { genLvglProject } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
@@ -208,6 +208,24 @@ export function UiDesignerView() {
               </div>
               <label className="field">Radius
                 <input type="number" min={0} value={selected.style?.radius ?? 0} onChange={(e) => setStyle(selected, { radius: +e.target.value })} />
+              </label>
+              <label className="field">Text color
+                <input type="color" value={selected.style?.textColor ?? "#ffffff"} onChange={(e) => setStyle(selected, { textColor: e.target.value })} />
+              </label>
+              <label className="field">Text align
+                <select value={selected.style?.textAlign ?? ""} onChange={(e) => setStyle(selected, { textAlign: (e.target.value || undefined) as UiTextAlign | undefined })}>
+                  <option value="">Default</option>
+                  {UI_TEXT_ALIGNS.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </label>
+              <label className="field">Border
+                <input type="number" min={0} value={selected.style?.borderWidth ?? 0} onChange={(e) => setStyle(selected, { borderWidth: +e.target.value >= 1 ? Math.round(+e.target.value) : undefined })} />
+              </label>
+              <label className="field">Border color
+                <input type="color" value={selected.style?.borderColor ?? "#ffffff"} onChange={(e) => setStyle(selected, { borderColor: e.target.value })} />
+              </label>
+              <label className="field">Padding
+                <input type="number" min={0} value={selected.style?.pad ?? 0} onChange={(e) => setStyle(selected, { pad: +e.target.value >= 1 ? Math.round(+e.target.value) : undefined })} />
               </label>
               <button className="btn" disabled={!selected.style} onClick={() => patch(selected.id, { style: undefined })}>Clear style</button>
               <label className="field">Event
