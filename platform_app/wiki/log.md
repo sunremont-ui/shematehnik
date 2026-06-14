@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL pressed-state style
+
+- `platform_app/web/src/design.ts`: added `UiStyle.pressedBgColor` (valid hex), normalized alongside the other style tokens.
+- `platform_app/web/src/codegen.ts`: `lvPressedFor`; `emitStyleDecls`/`emitStyleAttach` now declare and attach an independent `<nm>_style_pressed` (`lv_style_init` + `bg_color`/`bg_opa` + `lv_obj_add_style(..., LV_PART_MAIN | LV_STATE_PRESSED)`). The default style block is wrapped in `if (style)` so a pressed-only widget emits the pressed style without a default one.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: style panel gained a `Pressed fill` color control.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`: pressed + pressed-only checks and `.ucp` v2 round-trip.
+- `platform_app_lab/.../slice-21-pressed-style.md`, `wiki/modules/codegen.md`, `wiki/roadmap-web.md`, handoff, SKILL/command: lab slice and curated docs promoted; other pressed tokens, checked/focused/disabled states and transitions remain deferred.
+- Checks: `npm.cmd test` -- 18 files / 166 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (via `node node_modules/@playwright/test/cli.js`).
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL project bundle ZIP export
 
 - `platform_app/web/src/zip.ts` (+ `zip.test.ts`): pure `crc32` (canonical check value verified) and `zipStore` building an uncompressed (STORED) ZIP `Uint8Array` -- no external zip dependency.

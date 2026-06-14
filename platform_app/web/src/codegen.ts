@@ -195,33 +195,47 @@ function styleNameFor(nm: string): string {
   return `${nm}_style`;
 }
 
+function lvPressedFor(w: UiW): { bgColor: string } | null {
+  const c = /^#[0-9A-Fa-f]{6}$/.test(w.style?.pressedBgColor ?? "") ? w.style!.pressedBgColor!.slice(1).toUpperCase() : null;
+  return c ? { bgColor: c } : null;
+}
+
 function emitStyleDecls(out: string[], entries: { w: UiW; nm: string }[]) {
   let any = false;
   for (const { w, nm } of entries) {
-    if (!lvStyleFor(w)) continue;
-    out.push(`static lv_style_t ${styleNameFor(nm)};`);
-    any = true;
+    if (lvStyleFor(w)) { out.push(`static lv_style_t ${styleNameFor(nm)};`); any = true; }
+    if (lvPressedFor(w)) { out.push(`static lv_style_t ${styleNameFor(nm)}_pressed;`); any = true; }
   }
   if (any) out.push("");
 }
 
 function emitStyleAttach(out: string[], w: UiW, nm: string) {
   const style = lvStyleFor(w);
-  if (!style) return;
+  const pressed = lvPressedFor(w);
+  if (!style && !pressed) return;
   const sn = styleNameFor(nm);
-  out.push(`    lv_style_init(&${sn});`);
-  if (style.bgColor) {
-    out.push(`    lv_style_set_bg_color(&${sn}, lv_color_hex(0x${style.bgColor}));`);
-    out.push(`    lv_style_set_bg_opa(&${sn}, LV_OPA_COVER);`);
+  if (style) {
+    out.push(`    lv_style_init(&${sn});`);
+    if (style.bgColor) {
+      out.push(`    lv_style_set_bg_color(&${sn}, lv_color_hex(0x${style.bgColor}));`);
+      out.push(`    lv_style_set_bg_opa(&${sn}, LV_OPA_COVER);`);
+    }
+    if (style.radius !== null) out.push(`    lv_style_set_radius(&${sn}, ${style.radius});`);
+    if (style.textColor) out.push(`    lv_style_set_text_color(&${sn}, lv_color_hex(0x${style.textColor}));`);
+    if (style.textAlign) out.push(`    lv_style_set_text_align(&${sn}, ${style.textAlign});`);
+    if (style.font !== null) out.push(`    lv_style_set_text_font(&${sn}, &lv_font_montserrat_${style.font});`);
+    if (style.borderWidth !== null) out.push(`    lv_style_set_border_width(&${sn}, ${style.borderWidth});`);
+    if (style.borderColor) out.push(`    lv_style_set_border_color(&${sn}, lv_color_hex(0x${style.borderColor}));`);
+    if (style.pad !== null) out.push(`    lv_style_set_pad_all(&${sn}, ${style.pad});`);
+    out.push(`    lv_obj_add_style(${nm}, &${sn}, LV_PART_MAIN | LV_STATE_DEFAULT);`);
   }
-  if (style.radius !== null) out.push(`    lv_style_set_radius(&${sn}, ${style.radius});`);
-  if (style.textColor) out.push(`    lv_style_set_text_color(&${sn}, lv_color_hex(0x${style.textColor}));`);
-  if (style.textAlign) out.push(`    lv_style_set_text_align(&${sn}, ${style.textAlign});`);
-  if (style.font !== null) out.push(`    lv_style_set_text_font(&${sn}, &lv_font_montserrat_${style.font});`);
-  if (style.borderWidth !== null) out.push(`    lv_style_set_border_width(&${sn}, ${style.borderWidth});`);
-  if (style.borderColor) out.push(`    lv_style_set_border_color(&${sn}, lv_color_hex(0x${style.borderColor}));`);
-  if (style.pad !== null) out.push(`    lv_style_set_pad_all(&${sn}, ${style.pad});`);
-  out.push(`    lv_obj_add_style(${nm}, &${sn}, LV_PART_MAIN | LV_STATE_DEFAULT);`);
+  if (pressed) {
+    const pn = `${sn}_pressed`;
+    out.push(`    lv_style_init(&${pn});`);
+    out.push(`    lv_style_set_bg_color(&${pn}, lv_color_hex(0x${pressed.bgColor}));`);
+    out.push(`    lv_style_set_bg_opa(&${pn}, LV_OPA_COVER);`);
+    out.push(`    lv_obj_add_style(${nm}, &${pn}, LV_PART_MAIN | LV_STATE_PRESSED);`);
+  }
 }
 
 function emitLayout(out: string[], w: UiW, nm: string) {

@@ -117,6 +117,27 @@ describe("genLvgl", () => {
     expect(none.c).not.toContain("lv_style_set_text_font");
   });
 
+  it("emits a pressed-state style as a separate lv_style_t", () => {
+    const out = genLvgl([
+      { id: 1, type: "Button", x: 0, y: 0, w: 80, h: 30, text: "X", style: { bgColor: "#1f6feb", pressedBgColor: "#0a3d91" } },
+    ], "main");
+    expect(out.c).toContain("static lv_style_t ui_Button_1_style_pressed;");
+    expect(out.c).toContain("lv_style_set_bg_color(&ui_Button_1_style_pressed, lv_color_hex(0x0A3D91));");
+    expect(out.c).toContain("lv_obj_add_style(ui_Button_1, &ui_Button_1_style_pressed, LV_PART_MAIN | LV_STATE_PRESSED);");
+    // default style still emitted
+    expect(out.c).toContain("lv_obj_add_style(ui_Button_1, &ui_Button_1_style, LV_PART_MAIN | LV_STATE_DEFAULT);");
+  });
+
+  it("emits a pressed-only widget's pressed style without a default style", () => {
+    const out = genLvgl([
+      { id: 1, type: "Button", x: 0, y: 0, w: 80, h: 30, text: "X", style: { pressedBgColor: "#0a3d91" } },
+    ], "main");
+    expect(out.c).toContain("static lv_style_t ui_Button_1_style_pressed;");
+    expect(out.c).toContain("lv_obj_add_style(ui_Button_1, &ui_Button_1_style_pressed, LV_PART_MAIN | LV_STATE_PRESSED);");
+    expect(out.c).not.toContain("static lv_style_t ui_Button_1_style;");
+    expect(out.c).not.toContain("LV_STATE_DEFAULT");
+  });
+
   it("leaves a token-free widget without any lv_style call", () => {
     const out = genLvgl([{ id: 1, type: "Label", x: 0, y: 0, w: 100, h: 28, text: "Hi" }], "main");
     expect(out.c).not.toContain("lv_style_");

@@ -37,7 +37,7 @@ export type UiFlexAlign = "start" | "center" | "end" | "space_between" | "space_
 export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string; }
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export type UiTextAlign = "left" | "center" | "right";
-export interface UiStyle { bgColor?: string; radius?: number; textColor?: string; textAlign?: UiTextAlign; borderWidth?: number; borderColor?: string; pad?: number; font?: number; }
+export interface UiStyle { bgColor?: string; radius?: number; textColor?: string; textAlign?: UiTextAlign; borderWidth?: number; borderColor?: string; pad?: number; font?: number; pressedBgColor?: string; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; hidden?: boolean; opa?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export type UiAssetFormat = "rgb565" | "rgb565a8";
@@ -169,6 +169,7 @@ function normalizeUiStyle(raw: unknown): { style?: UiStyle } {
   if (Number.isFinite(pad) && pad >= 1) style.pad = Math.round(pad);
   const font = Number(raw.font);
   if (Number.isInteger(font) && UI_FONT_SIZES.includes(font)) style.font = font;
+  const pressedBgColor = hexColor(raw.pressedBgColor); if (pressedBgColor) style.pressedBgColor = pressedBgColor;
   return Object.keys(style).length ? { style } : {};
 }
 

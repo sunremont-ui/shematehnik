@@ -233,6 +233,9 @@ export function UiDesignerView() {
               <label className="field">Padding
                 <input type="number" min={0} value={selected.style?.pad ?? 0} onChange={(e) => setStyle(selected, { pad: +e.target.value >= 1 ? Math.round(+e.target.value) : undefined })} />
               </label>
+              <label className="field">Pressed fill
+                <input type="color" value={selected.style?.pressedBgColor ?? "#1f6feb"} onChange={(e) => setStyle(selected, { pressedBgColor: e.target.value })} />
+              </label>
               <button className="btn" disabled={!selected.style} onClick={() => patch(selected.id, { style: undefined })}>Clear style</button>
               <label className="field">Event
                 <select value={selected.event?.code ?? ""} onChange={(e) => setEvent(selected, e.target.value as UiEventCode | "")}>
