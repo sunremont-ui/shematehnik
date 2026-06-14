@@ -20,6 +20,8 @@
 | `QStackedWidget` рабочая область | `src/components/Workspace.tsx` (keep-alive вкладок) |
 | `QStatusBar` | `src/components/StatusBar.tsx` (aria-live) |
 | `applyTheme("dark")` палитра | `src/theme.css` (CSS-переменные + светлая + адаптив) |
+
+Адаптив: на `<=860px` дерево модулей становится выезжающим overlay с затемнением (`.tree-backdrop`), скрыто по умолчанию и открывается кнопкой `☰` в меню-баре (`toggleTree`, Ctrl+\\); выбор модуля авто-закрывает его. Редакторы с фиксированными inline-колонками (canvas + боковая панель) и `.grid.cols2/3` схлопываются в одну колонку. На `<=560px` бренд скрывается, меню-бар уплотняется.
 | `EventBus` + `Project` | `src/store.ts` (`UcpContext`/`useUcp`) |
 | `core/*` алгоритмы | `wasm/` (Emscripten) ↔ `src/core/ucpCore.ts` |
 | `ModuleFactory` иерархия | `src/data/modules.ts` (`MODULE_TREE`, 31 узел) |

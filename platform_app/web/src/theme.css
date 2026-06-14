@@ -64,7 +64,8 @@ body {
   min-height: 0;
 }
 
-.app-body.tree-hidden { grid-template-columns: 0 1fr; }
+/* дерево скрыто → рабочая область занимает всю ширину (без collapsed-колонки) */
+.app-body.tree-hidden { grid-template-columns: 1fr; }
 
 /* ---------- Menu bar ---------- */
 .menubar {
@@ -77,11 +78,24 @@ body {
   height: 34px;
   user-select: none;
 }
+.menubar .tree-toggle {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: none;
+}
+.menubar .tree-toggle:hover { background: var(--raised); }
 .menubar .brand {
   font-weight: 600;
   color: var(--accent-soft);
-  padding: 0 12px 0 6px;
+  padding: 0 12px 0 4px;
   letter-spacing: .2px;
+  flex: none;
 }
 .menu { position: relative; }
 .menu > button {
@@ -352,6 +366,9 @@ pre.code {
   * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
 
+/* затемнение под выезжающим деревом — только на узких экранах */
+.tree-backdrop { display: none; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 860px) {
   body { font-size: 12px; }
@@ -361,15 +378,31 @@ pre.code {
     position: absolute;
     z-index: 40;
     top: 0; bottom: 0; left: 0;
-    width: 240px;
+    width: min(280px, 82vw);
     box-shadow: 4px 0 16px var(--shadow);
+  }
+  .tree-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    background: rgba(1, 4, 9, .5);
   }
   .workspace { padding: 12px; }
   /* многоколоночные панели схлопываются в одну колонку */
   .grid.cols2, .grid.cols3 { grid-template-columns: 1fr; }
+  /* редакторы с фиксированными inline-колонками (canvas + боковая панель)
+     стекаются вертикально; !important перебивает inline-стиль */
+  .workspace [style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+  /* холсты/таблицы не выталкивают ширину наружу */
+  .workspace canvas, .workspace svg, .workspace table.tbl { max-width: 100%; }
 }
 
 @media (max-width: 560px) {
-  .menubar .brand { padding: 0 6px; }
+  .menubar { gap: 0; padding: 0 2px; }
+  .menubar .brand { display: none; }
+  .menu > button { padding: 6px 7px; }
+  .statusbar { gap: 10px; }
   .statusbar .perm:last-child { display: none; }
+  .panel-head h1 { font-size: 17px; }
 }

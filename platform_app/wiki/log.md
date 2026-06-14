@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] web | Web -- responsive shell (mobile module tree + editor grids)
+
+- Browser-tested the app at 390 / 800 / 1280 px via a throwaway Playwright screenshot script; found two responsive breaks.
+- `platform_app/web/src/theme.css`: fixed `.app-body.tree-hidden` from `0 1fr` to `1fr` (the single `Workspace` child was landing in a 0-width column, squeezing all content to a sliver). Added a `.tree-backdrop`, a `.tree-toggle` (hamburger) style, and at <=860px collapse every workspace inline `grid-template-columns` editor (canvas + side panel) to one column (`!important` beats inline), clamp canvases/tables to `max-width:100%`, widen the tree overlay to `min(280px,82vw)`, hide the brand text and tighten the menubar at <=560px.
+- `platform_app/web/src/App.tsx`: `treeVisible` now starts hidden when `innerWidth <= 860`; selecting a module auto-closes the overlay tree on narrow screens; render a `.tree-backdrop` (click closes) while the tree is open.
+- `platform_app/web/src/components/MenuBar.tsx`: added a visible `☰` toggle button (calls `toggleTree`, complements Ctrl+\\).
+- Re-screenshotted: mobile now hides the tree by default with a working ☰ overlay + dimmed backdrop; UI Designer / LVGL Export editor grids stack vertically; desktop unchanged.
+- Checks: `npm.cmd test` -- 18 files / 169 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; full Playwright smoke -- 17/17 passed (desktop viewport, tree behavior unaffected).
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL v9 generator mode
 
 - `platform_app/web/src/codegen.ts`: added `LvMode`/`LvDialect` + `makeDialect` and a `mode: "v8" | "v9"` parameter on `genLvgl`/`genLvglProject` (default `"v8"`). The dialect threads through `emitWidget`/`emitEventHandlers`/`lvEventActionLines`/`emitImageAssetDecls`/`emitProjectImageAssets`/`genLvglImageAsset`. v8 output is byte-identical; v9 swaps the verified slice-19 symbols: `lv_btn_create`->`lv_button_create`, `lv_img_create`->`lv_image_create`, Gauge `lv_meter_create`->`lv_scale_create`, `lv_img_set_src`->`lv_image_set_src`, `LV_IMG_DECLARE`->`LV_IMAGE_DECLARE`, `lv_img_dsc_t`->`lv_image_dsc_t`, `LV_IMG_CF_*`->`LV_COLOR_FORMAT_*`, `lv_scr_load`->`lv_screen_load`, `lv_obj_clear_flag`->`lv_obj_remove_flag`, `lv_obj_add_event_cb`->`lv_obj_add_event`, header comment label.

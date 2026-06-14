@@ -75,6 +75,14 @@ export function MenuBar({ onAbout, onShortcuts, onHelp, onSave, onOpen, onSaveAs
 
   return (
     <div className="menubar" ref={barRef} role="menubar">
+      <button
+        className="tree-toggle"
+        aria-label="Toggle module tree"
+        title="Toggle module tree (Ctrl+\)"
+        onClick={() => ucp.toggleTree()}
+      >
+        ☰
+      </button>
       <span className="brand">⊞ UCP</span>
       {Object.entries(menus).map(([name, items]) => (
         <div key={name} className={`menu${open === name ? " open" : ""}`}>

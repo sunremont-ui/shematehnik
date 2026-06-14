@@ -56,7 +56,7 @@ export function App() {
   const [selected, setSelected] = useState<ModuleKind | null>(() => moduleFromUrl());
   const [theme, setThemeState] = useState<"dark" | "light">(
     () => (localStorage.getItem(LS_THEME) === "light" ? "light" : "dark"));
-  const [treeVisible, setTreeVisible] = useState(true);
+  const [treeVisible, setTreeVisible] = useState(() => typeof window === "undefined" || window.innerWidth > 860);
   const [recentFiles, setRecentFiles] = useState<RecentFileMeta[]>([]);
   const [status, setStatusState] = useState("New project created");
   const [dialog, setDialog] = useState<"about" | "shortcuts" | null>(null);
@@ -241,6 +241,8 @@ export function App() {
     setStatus,
     select: (id) => {
       setSelected(id);
+      // На узких экранах дерево — выезжающий overlay; после выбора закрываем его.
+      if (window.innerWidth <= 860) setTreeVisible(false);
       const url = new URL(window.location.href);
       url.searchParams.set("module", id);
       window.history.replaceState(null, "", url);
@@ -364,6 +366,7 @@ export function App() {
         />
         <div className={`app-body${treeVisible ? "" : " tree-hidden"}`}>
           {treeVisible && <ModuleTree />}
+          {treeVisible && <div className="tree-backdrop" aria-hidden="true" onClick={() => setTreeVisible(false)} />}
           <Workspace />
         </div>
         <StatusBar />
