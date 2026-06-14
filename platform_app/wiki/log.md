@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL project bundle ZIP export
+
+- `platform_app/web/src/zip.ts` (+ `zip.test.ts`): pure `crc32` (canonical check value verified) and `zipStore` building an uncompressed (STORED) ZIP `Uint8Array` -- no external zip dependency.
+- `platform_app/web/src/codegen.ts`: `genLvglReadme(project)` summarizing screens and the image-asset manifest (inline vs extern).
+- `platform_app/web/src/modules/codegen_exports.tsx`: a `Download .zip` button in LVGL Export bundling `ui.c` + `ui.h` + `README.txt` via `downloadBlob`.
+- `platform_app/web/src/codegen.test.ts`: `genLvglReadme` content checks.
+- `platform_app_lab/.../slice-20-zip-export.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff, SKILL/command: lab slice and curated docs promoted; DEFLATE, nested folders and build files (CMake/PlatformIO) remain deferred.
+- Checks: `npm.cmd test` -- 18 files / 164 tests passed; `npm.cmd run build` -- OK (typed `zipStore` as `Uint8Array<ArrayBuffer>` so it satisfies `BlobPart`) with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (via `node node_modules/@playwright/test/cli.js`).
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL v9 research (no code)
 
 - Verified the v8->v9 API deltas for every symbol the generator emits against the LVGL v9.0 CHANGELOG (raw `release/v9.0/docs/CHANGELOG.rst`) and v8->v9 migration notes.

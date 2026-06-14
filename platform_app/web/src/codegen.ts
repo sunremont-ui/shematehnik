@@ -416,6 +416,32 @@ export function genLvglProject(project: LvglProjectDesign): LvglOut {
   return { c: c.join("\n"), h: h.join("\n") };
 }
 
+// Короткий README для бандла LVGL-экспорта: экраны + сводка по ассетам манифеста.
+export function genLvglReadme(project: LvglProjectDesign): string {
+  const screens = project.screens.length ? project.screens : [{ id: "main", widgets: [] }];
+  const widgets = screens.reduce((sum, s) => sum + (s.widgets?.length ?? 0), 0);
+  const out: string[] = [
+    "UCP UI Designer — LVGL v8 export",
+    "",
+    "Files:",
+    "  ui.c  — generated screens (lv_obj_create / widgets / styles / layout)",
+    "  ui.h  — extern widget handles and screen init prototypes",
+    "",
+    `Screens (${screens.length}):`,
+  ];
+  for (const s of screens) out.push(`  - ${s.id} (${s.widgets?.length ?? 0} widgets)`);
+  out.push("", `Total widgets: ${widgets}`);
+  const assets = project.assets ?? [];
+  out.push("", `Image assets (${assets.length}):`);
+  if (!assets.length) out.push("  (none)");
+  for (const a of assets) {
+    const inline = a.format ? `inline ${a.format} ${a.w}x${a.h}` : a.src ? `extern, src: ${a.src}` : "extern (declare only)";
+    out.push(`  - ${cident(a.id.trim(), "asset")}: ${inline}`);
+  }
+  out.push("", "Integration: call ui_init(); from your app after lv_init() and display setup.", "");
+  return out.join("\n");
+}
+
 // --- Packet → C struct (#pragma pack) ---
 const ctypeOf = (bytes: number) => bytes === 1 ? "uint8_t" : bytes === 2 ? "uint16_t" : "uint32_t";
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { genLvgl, genLvglProject, genLvglImageAsset, genPacketStruct, genProtoParser, genBlink, genFsm, genRegisterHeader, genRegisterMarkdown } from "./codegen.ts";
+import { genLvgl, genLvglProject, genLvglImageAsset, genLvglReadme, genPacketStruct, genProtoParser, genBlink, genFsm, genRegisterHeader, genRegisterMarkdown } from "./codegen.ts";
 import type { UiW, PacketField, FsmDesign, RegisterMapDesign } from "./design.ts";
 
 const widgets: UiW[] = [
@@ -331,6 +331,22 @@ describe("genLvglProject", () => {
     expect(c).toContain("static lv_style_t ui_settings_Button_2_style;");
     expect(c).toContain("lv_style_set_bg_color(&ui_settings_Button_2_style, lv_color_hex(0x2EA043));");
     expect(c).toContain("lv_obj_add_style(ui_settings_Button_2, &ui_settings_Button_2_style, LV_PART_MAIN | LV_STATE_DEFAULT);");
+  });
+
+  it("genLvglReadme lists screens and declared assets", () => {
+    const readme = genLvglReadme({
+      initialScreenId: "main",
+      assets: [{ id: "img_logo", src: "assets/logo.png" }, { id: "img_px", w: 2, h: 1, format: "rgb565", data: [1, 2, 3, 4] }],
+      screens: [
+        { id: "main", widgets: [{ id: 1, type: "Label", x: 0, y: 0, w: 10, h: 10, text: "Hi" }] },
+        { id: "settings", widgets: [] },
+      ],
+    });
+    expect(readme).toContain("Screens (2):");
+    expect(readme).toContain("- main (1 widgets)");
+    expect(readme).toContain("img_logo: extern, src: assets/logo.png");
+    expect(readme).toContain("img_px: inline rgb565 2x1");
+    expect(readme).toContain("ui_init();");
   });
 
   it("deduplicates project-level image asset declarations across screens", () => {

@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 19 (LVGL v9 research, no code) done: verified v8->v9 deltas in `compatibility-matrix.md` + `v9-mode-candidate.md`. Commit with this handoff update.
+- Slice 20 (project bundle .zip export) implemented and verified; commit it with this handoff update.
+- Slice 19 (LVGL v9 research, no code) committed as `ac8908c docs(web): LVGL v9 research — verified v8->v9 delta matrix`.
 - Slice 18 (built-in Montserrat font size token) committed as `82b1baa feat(web): add LVGL built-in Montserrat font token`.
 - Slice 17 (extended style tokens: text/border/padding) committed as `0c50f1d feat(web): add LVGL extended style tokens (text, border, padding)`.
 - Slices 15 (RGB565A8 alpha image format) and 16 (widget hidden flag + opacity) committed as `3c86ced feat(web): LVGL RGB565A8 alpha images + widget hidden/opacity`.
@@ -31,10 +32,12 @@ Core code:
 - `platform_app/web/src/design.ts`
 - `platform_app/web/src/codegen.ts`
 - `platform_app/web/src/image.ts`
+- `platform_app/web/src/zip.ts`
 - `platform_app/web/src/modules/UiDesignerView.tsx`
 - `platform_app/web/src/modules/codegen_exports.tsx`
 - `platform_app/web/src/codegen.test.ts`
 - `platform_app/web/src/image.test.ts`
+- `platform_app/web/src/zip.test.ts`
 - `platform_app/web/src/project.test.ts`
 - `platform_app/web/e2e/smoke.spec.ts`
 
@@ -57,7 +60,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 18:
+Latest full verification from slice 20:
 
 ```bash
 cd platform_app/web
@@ -70,7 +73,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Full Vitest: 17 files / 160 tests passed.
+- Full Vitest: 18 files / 164 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 - e2e gotcha: `getByLabel` is a substring match and a select's accessible name includes its selected option text. New style controls (e.g. `Text align`) can collide with layout `Align`; the layout-align selector is now `getByLabel(/^Align/)`. Watch for similar collisions when adding labels.
@@ -92,31 +95,29 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Good Next Slice Options
 
-Slices 10-18 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
+Slices 10-20 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
 hidden/opacity, extended style tokens (text/border/padding + built-in Montserrat font),
-full main/cross/track flex align and per-child flex grow. The v8 widget + layout + style +
-asset surface is now comprehensive. Pick one small vertical slice, write a `slice-19-*.md`
-plan first, then implement.
+full main/cross/track flex align, per-child flex grow, verified v9 delta research
+(`compatibility-matrix.md` + `v9-mode-candidate.md`), and a project-bundle `.zip` export
+(`src/zip.ts`). Pick one small vertical slice, write a `slice-NN-*.md` plan first.
 
-1. LVGL v9 research-only matrix update (recommended)
-
-- No code changes.
-- Re-check official LVGL v9 docs and record exact v9 constructor/screen/style/event/image
-  differences in `compatibility-matrix.md`.
-- Produce a candidate `slice-20-v9-mode.md` with acceptance criteria before any v9 codegen.
-
-2. Asset folder / skeleton export
-
-- Bundle generated `ui.c/ui.h` plus declared inline assets into a downloadable set.
-- Keep it a zip/manifest list, no build files yet.
-
-3. Per-state / pressed styles
+1. Per-state / pressed styles
 
 - Add a minimal pressed-state style variant emitted with `LV_STATE_PRESSED`.
 - Reuse the `lv_style_t` path with a second style object.
+- Tests: pressed-token output + no-pressed unchanged.
 
-Recommended next slice: option 1 (LVGL v9 research) -- the v8 surface is now broad, so the
-v8/v9 boundary is the biggest open question before adding more.
+2. LVGL v9 mode (implement `v9-mode-candidate.md`)
+
+- Behind a `mode: "v8" | "v9"` flag; symbol-rename map + image color-format swap.
+- Add a v9 golden fixture; keep all v8 golden tests byte-identical.
+
+3. Nested / responsive layout
+
+- Allow Panels inside Panels (recursive parent chain) and/or percent sizes.
+
+Recommended next slice: option 1 (per-state styles) as the smallest, then option 2 (v9 mode)
+when a modern target is wanted.
 
 ## Promotion Checklist For The Next Agent
 

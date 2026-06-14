@@ -5,8 +5,9 @@ import { PanelHead } from "./common.tsx";
 import { uiProject, type UiAsset } from "../design.ts";
 import { packet } from "../design.ts";
 import { rgbaToRgb565, rgbaToRgb565a8 } from "../image.ts";
-import { genLvgl, genLvglProject, genProtoParser, genBlink } from "../codegen.ts";
-import { downloadText } from "../util.ts";
+import { genLvgl, genLvglProject, genLvglReadme, genProtoParser, genBlink } from "../codegen.ts";
+import { downloadText, downloadBlob } from "../util.ts";
+import { zipStore } from "../zip.ts";
 
 function CodeShell({ mod, code, filename, controls }: { mod: ModuleDef; code: string; filename: string; controls?: React.ReactNode }) {
   const ucp = useUcp();
@@ -87,6 +88,15 @@ export function LvglExportView() {
   const gen = mode === "project" ? genLvglProject(project) : genLvgl(active.widgets, active.id);
   const code = file === "c" ? gen.c : gen.h;
   const widgets = project.screens.reduce((sum, screen) => sum + screen.widgets.length, 0);
+  const downloadZip = () => {
+    const proj = genLvglProject(project);
+    const zip = zipStore([
+      { name: "ui.c", data: proj.c },
+      { name: "ui.h", data: proj.h },
+      { name: "README.txt", data: genLvglReadme(project) },
+    ]);
+    downloadBlob("ui_lvgl.zip", zip, "application/zip");
+  };
   return <CodeShell mod={MODULE_INDEX["lvgl"]} code={code} filename={file === "c" ? "ui.c" : "ui.h"} controls={
     <><span className="muted">File:</span>
       <button className={`btn${file === "c" ? " primary" : ""}`} onClick={() => setFile("c")}>ui.c</button>
@@ -94,6 +104,7 @@ export function LvglExportView() {
       <span className="muted">Mode:</span>
       <button className={`btn${mode === "project" ? " primary" : ""}`} onClick={() => setMode("project")}>Project</button>
       <button className={`btn${mode === "screen" ? " primary" : ""}`} onClick={() => setMode("screen")}>Current screen</button>
+      <button className="btn" title="Download ui.c + ui.h + README as a .zip" onClick={downloadZip}>Download .zip</button>
       <span className="chip" style={{ marginLeft: "auto" }}><span className="dot ok" />{project.screens.length} screens / {widgets} widgets из UI Designer</span>
       {mode === "project" && <AssetManifest assets={project.assets ?? []} />}
     </>

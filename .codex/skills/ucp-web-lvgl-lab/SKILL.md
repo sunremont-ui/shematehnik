@@ -40,6 +40,7 @@ Use this skill for research-first LVGL exporter work after roadmap phase 17.
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-18-font.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-19-v9-research.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/v9-mode-candidate.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-20-zip-export.md`
    - `platform_app/web/src/design.ts`
    - `platform_app/web/src/codegen.ts`
    - `platform_app/web/src/modules/UiDesignerView.tsx`
@@ -83,5 +84,5 @@ Manual UI smoke:
 
 - Current exporter has a backward-compatible single-screen path and a persisted multi-screen `uiProject` path.
 - Use `agent-handoff.md` as the compact continuation snapshot before choosing the next slice.
-- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, extended style tokens (bg/radius/text-color/text-align/border/pad + built-in Montserrat font), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow` and same-screen `Panel` child parents are in place; richer action graphs, imported fonts, asset folder export, per-state styles, nested/responsive layouts and LVGL v9 mode are still pending.
+- `genLvglProject()`, the UI Designer state / `.ucp` migration wrapper, minimal clicked/value_changed event callback stubs, minimal `screen_load` actions, minimal bgColor/radius style tokens, `Image.assetId` placeholders, the `UiProjectDesign.assets` project manifest (id/src declarations + missing-asset report), a binary image pipeline (`genLvglImageAsset` inline `lv_img_dsc_t`, RGB565 + RGB565A8/alpha), per-widget `hidden`/`opa`, extended style tokens (bg/radius/text-color/text-align/border/pad + built-in Montserrat font), minimal `Panel.layout` flex output with main/cross/track `align`, per-child `flexGrow`, same-screen `Panel` child parents, a verified v9 delta matrix (research) and a project-bundle `.zip` export (`src/zip.ts`) are in place; richer action graphs, imported fonts, per-state styles, nested/responsive layouts and LVGL v9 mode implementation are still pending.
 - Do not mix SquareLine import promises with direct LVGL export work unless a real `.spj` or generated SquareLine project fixture is in the lab.
