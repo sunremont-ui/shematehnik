@@ -140,7 +140,7 @@ export function UiDesignerView() {
         <div className="card">
           <div className="muted" style={{ fontSize: 11, marginBottom: 10 }}>PROPERTIES</div>
           {selected ? (
-            <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10 }}>
               <div className="tag">{selected.type}</div>
               <label className="field">Text<input value={selected.text} onChange={(e) => patch(selected.id, { text: e.target.value })} /></label>
               <label className="field" style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>

@@ -246,7 +246,9 @@ body {
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.primary:hover { filter: brightness(1.08); }
 
-label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+label.field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+/* контролы в .field могут сжиматься ниже intrinsic-ширины → не выталкивают колонку */
+.field > input, .field > select, .field > textarea { min-width: 0; }
 input, select, textarea {
   background: var(--raised);
   color: var(--text);

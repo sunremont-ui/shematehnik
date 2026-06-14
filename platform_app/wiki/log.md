@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] web | Web -- fix UI Designer property inputs overflowing right
+
+- Browser-measured the UI Designer PROPERTIES panel: card `clientWidth` 218px but `scrollWidth` 354px; inputs/selects rendered at ~338px, spilling past the right viewport edge.
+- Root cause: the inner property wrapper was `display:grid` with no `grid-template-columns`, so its implicit `auto` column grew to the controls' max-content; the W/H flex row then could not shrink because the number inputs kept their intrinsic min-width.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: pinned the inner property grid to `grid-template-columns: minmax(0, 1fr)`.
+- `platform_app/web/src/theme.css`: `label.field` and its direct `input/select/textarea` get `min-width: 0` so controls shrink to their column instead of pushing it wider (general safety net for all property panels).
+- Re-measured: card `scrollWidth` == `clientWidth` (218), 0 overflowing controls, outer grid `scrollWidth` == `clientWidth` (976). Desktop and mobile UI Designer verified.
+- Checks: `npm.cmd test` -- 18 files / 169 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed.
+
+---
+
 ## [2026-06-14] web | Web -- responsive shell (mobile module tree + editor grids)
 
 - Browser-tested the app at 390 / 800 / 1280 px via a throwaway Playwright screenshot script; found two responsive breaks.
