@@ -2,7 +2,48 @@
 
 ## Status
 
-Seed matrix, 2026-06-12. This is a lab artifact, not a final compatibility promise.
+Seed matrix, 2026-06-12. v8->v9 deltas verified 2026-06-14 (slice 19). This is a lab
+artifact, not a final compatibility promise.
+
+## Verified v8 -> v9 Deltas (2026-06-14, slice 19)
+
+Sources: LVGL v9.0 CHANGELOG (raw `release/v9.0/docs/CHANGELOG.rst`) and the v8->v9
+migration notes. Strategic finding: **our generator's output is mostly v9-compatible
+as-is**; a v9 mode is a small set of targeted renames + the image color-format change,
+not a rewrite. Styles, flex, fonts, event constants, positions and colors are unchanged.
+
+| Symbol our generator emits | v9 equivalent | Status | Confidence |
+|---|---|---|---|
+| `lv_btn_create` | `lv_button_create` | rename (`btn_`->`button_`) | verified (changelog) |
+| `lv_img_create` | `lv_image_create` | rename (`img_`->`image_`) | verified |
+| `lv_img_set_src` | `lv_image_set_src` | rename | verified |
+| `LV_IMG_DECLARE` | `LV_IMAGE_DECLARE` | rename | verified |
+| `lv_img_dsc_t` | `lv_image_dsc_t` | rename | verified |
+| `.header.cf = LV_IMG_CF_TRUE_COLOR` | `.header.cf = LV_COLOR_FORMAT_RGB565` | format enum change | verified (LV_IMG_CF_*->LV_COLOR_FORMAT_*) |
+| `LV_IMG_CF_TRUE_COLOR_ALPHA` (rgb565a8) | `LV_COLOR_FORMAT_RGB565A8` | format enum change | verified pattern; confirm exact RGB565A8 token |
+| `lv_meter_create` (Gauge) | `lv_scale_create` (different API) | **removed/replaced** | verified (meter removed -> scale) |
+| `lv_scr_load(ui_x)` | `lv_screen_load(ui_x)` | rename (`scr`->`screen`) | verified |
+| `lv_obj_clear_flag(..., LV_OBJ_FLAG_SCROLLABLE)` | `lv_obj_remove_flag(...)` | rename (`clear`->`remove`) | medium; confirm vs `lv_api_map_v8.h` |
+| `lv_obj_add_event_cb(...)` | `lv_obj_add_event(...)` | rename | medium; compat alias may remain |
+| `lv_label_create`/`set_text` | same | unchanged | verified |
+| `lv_slider/switch/arc/bar/dropdown/roller/checkbox/textarea/list_create` | same | unchanged | verified (only btn/img/meter renamed) |
+| `lv_obj_create` (screen `NULL`, Panel) | same | unchanged | verified |
+| `lv_obj_set_pos/size`, `lv_obj_center` | same | unchanged | verified |
+| `lv_obj_add_flag(..., LV_OBJ_FLAG_HIDDEN)` | same | unchanged | verified |
+| `lv_obj_set_style_opa` | same | unchanged | verified |
+| Styles: `lv_style_init`, `lv_style_set_{bg_color,bg_opa,radius,text_color,text_align,text_font,border_width,border_color,pad_all}`, `lv_obj_add_style` | same | unchanged | verified (style API stable in v9) |
+| `lv_color_hex`, `LV_OPA_COVER`, `LV_PART_MAIN`, `LV_STATE_DEFAULT`, `LV_TEXT_ALIGN_*` | same | unchanged | verified |
+| `lv_font_montserrat_<n>` | same | unchanged | verified |
+| Flex: `lv_obj_set_layout`/`set_flex_flow`/`set_flex_align`/`set_flex_grow`, `LV_LAYOUT_FLEX`, `LV_FLEX_FLOW_*`, `LV_FLEX_ALIGN_*`, `lv_obj_set_style_pad_row/column` | same | unchanged | verified (flex unchanged in v9) |
+| Events: `LV_EVENT_CLICKED`, `LV_EVENT_VALUE_CHANGED` | same | unchanged | verified |
+
+Net v9-mode work (candidate `v9-mode-candidate.md`): a small rename map
+(`btn->button`, `img->image`, `scr->screen`, `LV_IMG_DECLARE->LV_IMAGE_DECLARE`,
+`lv_img_dsc_t->lv_image_dsc_t`, `clear_flag->remove_flag`, `add_event_cb->add_event`),
+the image color-format swap (`LV_IMG_CF_*` -> `LV_COLOR_FORMAT_*`), and a decision on the
+Gauge widget (`lv_meter` -> `lv_scale`, which needs a new scale model or a documented gap).
+Everything else passes through unchanged, so a `genLvgl`/`genLvglProject` `mode: "v8" | "v9"`
+flag with a symbol map + a golden v9 fixture is the recommended implementation shape.
 
 ## Current UCP Generator Baseline
 

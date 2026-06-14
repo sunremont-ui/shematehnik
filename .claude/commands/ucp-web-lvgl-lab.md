@@ -35,6 +35,8 @@ Research-first laboratory for improving UI Designer and LVGL Export after roadma
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-16-widget-visibility.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-17-style-tokens.md`
   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-18-font.md`
+  - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-19-v9-research.md`
+  - `platform_app_lab/projects/lvgl-exporter-improvement-v0/v9-mode-candidate.md`
 
 ## Rules
 

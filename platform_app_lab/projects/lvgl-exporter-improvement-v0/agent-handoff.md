@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 18 (built-in Montserrat font size token) implemented and verified; commit it with this handoff update.
+- Slice 19 (LVGL v9 research, no code) done: verified v8->v9 deltas in `compatibility-matrix.md` + `v9-mode-candidate.md`. Commit with this handoff update.
+- Slice 18 (built-in Montserrat font size token) committed as `82b1baa feat(web): add LVGL built-in Montserrat font token`.
 - Slice 17 (extended style tokens: text/border/padding) committed as `0c50f1d feat(web): add LVGL extended style tokens (text, border, padding)`.
 - Slices 15 (RGB565A8 alpha image format) and 16 (widget hidden flag + opacity) committed as `3c86ced feat(web): LVGL RGB565A8 alpha images + widget hidden/opacity`.
 - Slice 14 (binary RGB565 image asset pipeline) committed as `73e3d64 feat(web): add LVGL binary RGB565 image asset pipeline`.

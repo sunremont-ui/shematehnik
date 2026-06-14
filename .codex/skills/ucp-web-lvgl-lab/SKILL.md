@@ -38,6 +38,8 @@ Use this skill for research-first LVGL exporter work after roadmap phase 17.
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-16-widget-visibility.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-17-style-tokens.md`
    - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-18-font.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/slice-19-v9-research.md`
+   - `platform_app_lab/projects/lvgl-exporter-improvement-v0/v9-mode-candidate.md`
    - `platform_app/web/src/design.ts`
    - `platform_app/web/src/codegen.ts`
    - `platform_app/web/src/modules/UiDesignerView.tsx`

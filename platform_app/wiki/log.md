@@ -4,6 +4,16 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL v9 research (no code)
+
+- Verified the v8->v9 API deltas for every symbol the generator emits against the LVGL v9.0 CHANGELOG (raw `release/v9.0/docs/CHANGELOG.rst`) and v8->v9 migration notes.
+- Strategic finding: most output is unchanged in v9 (styles, flex, fonts, event constants, positions, colors, all widgets except button/image/meter). v9 mode is a small rename map + image color-format swap + a Gauge decision, not a rewrite.
+- Verified renames: `lv_btn_create`->`lv_button_create`, `lv_img_*`->`lv_image_*` (`LV_IMG_DECLARE`->`LV_IMAGE_DECLARE`, `lv_img_dsc_t`->`lv_image_dsc_t`), `lv_scr_load`->`lv_screen_load`, image color format `LV_IMG_CF_*`->`LV_COLOR_FORMAT_*`, `lv_meter` removed -> `lv_scale`. Medium-confidence: `clear_flag`->`remove_flag`, `add_event_cb`->`add_event` (confirm vs `lv_api_map_v8.h`).
+- `platform_app_lab/.../compatibility-matrix.md`: added a verified "v8 -> v9 Deltas" table. New `slice-19-v9-research.md` and `v9-mode-candidate.md` (a `mode: "v8"|"v9"` generator plan). Handoff + SKILL/command updated.
+- Documentation/research only -- no code, Vitest/build unchanged. The exporter still targets LVGL v8 by default.
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL built-in font size token
 
 - `platform_app/web/src/design.ts`: added `UiStyle.font` and `UI_FONT_SIZES = [12,14,16,18,20,24,28,32]`; normalized to an integer in that set.
