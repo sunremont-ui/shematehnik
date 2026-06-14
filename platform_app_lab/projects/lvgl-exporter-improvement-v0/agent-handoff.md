@@ -6,7 +6,8 @@ Date: 2026-06-13.
 
 Last implementation work:
 
-- Slice 17 (extended style tokens: text/border/padding) implemented and verified; commit it with this handoff update.
+- Slice 18 (built-in Montserrat font size token) implemented and verified; commit it with this handoff update.
+- Slice 17 (extended style tokens: text/border/padding) committed as `0c50f1d feat(web): add LVGL extended style tokens (text, border, padding)`.
 - Slices 15 (RGB565A8 alpha image format) and 16 (widget hidden flag + opacity) committed as `3c86ced feat(web): LVGL RGB565A8 alpha images + widget hidden/opacity`.
 - Slice 14 (binary RGB565 image asset pipeline) committed as `73e3d64 feat(web): add LVGL binary RGB565 image asset pipeline`.
 - Slice 13 (per-child flex grow) committed as `c7a1e35 feat(web): add LVGL per-child flex grow`.
@@ -20,7 +21,7 @@ Current lab state:
 - No SquareLine import/export compatibility claim.
 - `uiProject` is the persisted multi-screen source of truth.
 - `uiDesign` remains a legacy single-screen compatibility store.
-- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, extended styles (bg/radius/text/border/pad), image asset placeholders, project asset manifest (id/src + missing-asset report) with inline RGB565 + RGB565A8/alpha `lv_img_dsc_t` pixels, widget hidden/opacity, Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
+- Implemented slices: single-screen golden baseline, multi-screen generator, UI project persistence, events, screen-load actions, extended styles (bg/radius/text/border/pad/font), image asset placeholders, project asset manifest (id/src + missing-asset report) with inline RGB565 + RGB565A8/alpha `lv_img_dsc_t` pixels, widget hidden/opacity, Panel flex layout + main/cross/track align, per-child flex grow, and same-screen Panel child parents.
 
 ## Current Working Files
 
@@ -55,7 +56,7 @@ Skill/command surfaces:
 
 ## Verified Checks
 
-Latest full verification from slice 17:
+Latest full verification from slice 18:
 
 ```bash
 cd platform_app/web
@@ -68,7 +69,7 @@ node node_modules/@playwright/test/cli.js test --grep "CodeGen LVGL" --reporter=
 
 Results:
 
-- Full Vitest: 17 files / 159 tests passed.
+- Full Vitest: 17 files / 160 tests passed.
 - Build: OK; known lazy `ThreeDView` chunk warning remains.
 - Targeted Playwright: 1 passed (`CodeGen LVGL`).
 - e2e gotcha: `getByLabel` is a substring match and a select's accessible name includes its selected option text. New style controls (e.g. `Text align`) can collide with layout `Align`; the layout-align selector is now `getByLabel(/^Align/)`. Watch for similar collisions when adding labels.
@@ -90,30 +91,31 @@ issue once the test prints a pass, and record it honestly in `wiki/log.md`.
 
 ## Good Next Slice Options
 
-Slices 10-17 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
-hidden/opacity, extended style tokens (text/border/padding), full main/cross/track flex
-align and per-child flex grow. The v8 widget + layout + style + asset surface is now broad.
-Pick one small vertical slice, write a `slice-18-*.md` plan first, then implement.
+Slices 10-18 are done: asset manifest with inline RGB565 + RGB565A8/alpha pixels, widget
+hidden/opacity, extended style tokens (text/border/padding + built-in Montserrat font),
+full main/cross/track flex align and per-child flex grow. The v8 widget + layout + style +
+asset surface is now comprehensive. Pick one small vertical slice, write a `slice-19-*.md`
+plan first, then implement.
 
 1. LVGL v9 research-only matrix update (recommended)
 
 - No code changes.
 - Re-check official LVGL v9 docs and record exact v9 constructor/screen/style/event/image
   differences in `compatibility-matrix.md`.
-- Produce a candidate `slice-19-v9-mode.md` with acceptance criteria before any v9 codegen.
+- Produce a candidate `slice-20-v9-mode.md` with acceptance criteria before any v9 codegen.
 
-2. Custom font selection
-
-- Add a minimal `UiStyle.font` (e.g. a montserrat size enum) -> `lv_style_set_text_font`.
-- Generator emits the call only when set; keep font asset embedding out of scope.
-- Tests: no-font output unchanged and one fixture.
-
-3. Asset folder / skeleton export
+2. Asset folder / skeleton export
 
 - Bundle generated `ui.c/ui.h` plus declared inline assets into a downloadable set.
 - Keep it a zip/manifest list, no build files yet.
 
-Recommended next slice: option 1 (LVGL v9 research) before adding more v8 surface.
+3. Per-state / pressed styles
+
+- Add a minimal pressed-state style variant emitted with `LV_STATE_PRESSED`.
+- Reuse the `lv_style_t` path with a second style object.
+
+Recommended next slice: option 1 (LVGL v9 research) -- the v8 surface is now broad, so the
+v8/v9 boundary is the biggest open question before adding more.
 
 ## Promotion Checklist For The Next Agent
 

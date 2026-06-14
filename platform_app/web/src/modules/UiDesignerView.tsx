@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUcp } from "../store.ts";
 import { MODULE_INDEX } from "../data/modules.ts";
 import { PanelHead } from "./common.tsx";
-import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, UI_TEXT_ALIGNS, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayout, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiTextAlign, type UiW as W } from "../design.ts";
+import { UI_EVENT_ACTION_KINDS, UI_EVENT_CODES, UI_FLEX_ALIGNS, UI_FONT_SIZES, UI_LAYOUT_KINDS, UI_STYLE_SWATCHES, UI_TEXT_ALIGNS, uiProject, type UiEventActionKind, type UiEventCode, type UiFlexAlign, type UiLayout, type UiLayoutKind, type UiProjectDesign, type UiScreenDesign, type UiTextAlign, type UiW as W } from "../design.ts";
 import { genLvglProject } from "../codegen.ts";
 import { downloadText } from "../util.ts";
 
@@ -216,6 +216,12 @@ export function UiDesignerView() {
                 <select value={selected.style?.textAlign ?? ""} onChange={(e) => setStyle(selected, { textAlign: (e.target.value || undefined) as UiTextAlign | undefined })}>
                   <option value="">Default</option>
                   {UI_TEXT_ALIGNS.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </label>
+              <label className="field">Font
+                <select value={selected.style?.font ?? ""} onChange={(e) => setStyle(selected, { font: e.target.value ? +e.target.value : undefined })}>
+                  <option value="">Default</option>
+                  {UI_FONT_SIZES.map((n) => <option key={n} value={n}>Montserrat {n}</option>)}
                 </select>
               </label>
               <label className="field">Border

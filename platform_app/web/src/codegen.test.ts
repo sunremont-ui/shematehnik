@@ -108,6 +108,15 @@ describe("genLvgl", () => {
     expect(out.c).not.toContain("lv_style_set_radius(&ui_Label_1_style");
   });
 
+  it("emits a built-in Montserrat font when set", () => {
+    const out = genLvgl([
+      { id: 1, type: "Label", x: 0, y: 0, w: 100, h: 28, text: "Hi", style: { font: 24 } },
+    ], "main");
+    expect(out.c).toContain("lv_style_set_text_font(&ui_Label_1_style, &lv_font_montserrat_24);");
+    const none = genLvgl([{ id: 2, type: "Label", x: 0, y: 0, w: 100, h: 28, text: "Hi", style: { radius: 4 } }], "main");
+    expect(none.c).not.toContain("lv_style_set_text_font");
+  });
+
   it("leaves a token-free widget without any lv_style call", () => {
     const out = genLvgl([{ id: 1, type: "Label", x: 0, y: 0, w: 100, h: 28, text: "Hi" }], "main");
     expect(out.c).not.toContain("lv_style_");

@@ -89,6 +89,7 @@ interface LvStyle {
   bgColor: string | null; radius: number | null;
   textColor: string | null; textAlign: string | null;
   borderWidth: number | null; borderColor: string | null; pad: number | null;
+  font: number | null;
 }
 
 function lvStyleFor(w: UiW): LvStyle | null {
@@ -103,9 +104,10 @@ function lvStyleFor(w: UiW): LvStyle | null {
     borderWidth: intMin1(s?.borderWidth),
     borderColor: hex(s?.borderColor),
     pad: intMin1(s?.pad),
+    font: Number.isInteger(s?.font) && (s?.font ?? 0) >= 1 ? s!.font! : null,
   };
   const any = style.bgColor || style.radius !== null || style.textColor || style.textAlign
-    || style.borderWidth !== null || style.borderColor || style.pad !== null;
+    || style.borderWidth !== null || style.borderColor || style.pad !== null || style.font !== null;
   return any ? style : null;
 }
 
@@ -215,6 +217,7 @@ function emitStyleAttach(out: string[], w: UiW, nm: string) {
   if (style.radius !== null) out.push(`    lv_style_set_radius(&${sn}, ${style.radius});`);
   if (style.textColor) out.push(`    lv_style_set_text_color(&${sn}, lv_color_hex(0x${style.textColor}));`);
   if (style.textAlign) out.push(`    lv_style_set_text_align(&${sn}, ${style.textAlign});`);
+  if (style.font !== null) out.push(`    lv_style_set_text_font(&${sn}, &lv_font_montserrat_${style.font});`);
   if (style.borderWidth !== null) out.push(`    lv_style_set_border_width(&${sn}, ${style.borderWidth});`);
   if (style.borderColor) out.push(`    lv_style_set_border_color(&${sn}, lv_color_hex(0x${style.borderColor}));`);
   if (style.pad !== null) out.push(`    lv_style_set_pad_all(&${sn}, ${style.pad});`);

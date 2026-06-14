@@ -63,7 +63,7 @@ Current status:
 - `.ucp` v2 persists `design.uiProject`; old files that only contain `design.uiDesign` load as one `main` screen.
 - LVGL Export can show Project output or Current screen output, preserving the legacy `genLvgl(widgets, screen)` path.
 - Minimal event model: widgets can store `event` metadata for `clicked` or `value_changed`; generated LVGL v8 C emits callback stubs, optional project-level `screen_load` actions via `lv_scr_load(ui_target)` and `lv_obj_add_event_cb(...)` registrations.
-- Style model: widgets store a `style` of `bgColor`, `radius`, `textColor`, `textAlign` (`left`/`center`/`right`), `borderWidth` (>=1), `borderColor` and `pad` (>=1); generated LVGL v8 C emits one `lv_style_t` per widget with `lv_style_init`, the set tokens (`bg_color`/`bg_opa`, `radius`, `text_color`, `text_align`, `border_width`, `border_color`, `pad_all`) and `lv_obj_add_style(...)`. A widget with no tokens emits no style.
+- Style model: widgets store a `style` of `bgColor`, `radius`, `textColor`, `textAlign` (`left`/`center`/`right`), `borderWidth` (>=1), `borderColor`, `pad` (>=1) and `font` (built-in Montserrat size from `UI_FONT_SIZES`); generated LVGL v8 C emits one `lv_style_t` per widget with `lv_style_init`, the set tokens (`bg_color`/`bg_opa`, `radius`, `text_color`, `text_align`, `text_font` = `&lv_font_montserrat_<n>`, `border_width`, `border_color`, `pad_all`) and `lv_obj_add_style(...)`. A widget with no tokens emits no style.
 - Minimal image asset placeholder: `Image` widgets can store `assetId`; generated LVGL v8 C emits `LV_IMG_DECLARE(asset)` and `lv_img_set_src(widget, &asset)`, or an explicit TODO when the image source is still missing.
 - Minimal project asset manifest: `UiProjectDesign.assets` (`{ id, src?, w?, h?, format?, data? }`) declares known images. `genLvglProject()` declares the union of manifest and used widget assets once each, comments declared sources as `// src: <path>`, and reports widget assets used but absent from a non-empty manifest as explicit TODOs. Empty/absent manifest keeps the slice-06 declaration behavior unchanged.
 - Binary image pipeline: a manifest asset can carry inline pixels (`format`, `w`, `h`, `data`). Two formats: `rgb565` (`LV_IMG_CF_TRUE_COLOR`, 2 bytes/pixel, `data.length === w*h*2`) and `rgb565a8` (`LV_IMG_CF_TRUE_COLOR_ALPHA`, 3 bytes/pixel = RGB565 LE + alpha, `w*h*3`). `genLvglImageAsset` emits a `static const uint8_t <id>_map[]` byte array plus a `const lv_img_dsc_t <id>` with the matching `.header.cf`; such assets are defined inline instead of `LV_IMG_DECLARE`d. `rgbaToRgb565`/`rgbaToRgb565a8` (in `image.ts`) are the pure canvas-RGBA converters; the UI canvas decode (img / imgα import) feeds them. Intended for small icons -- large images bloat the `.ucp` JSON.
@@ -74,7 +74,7 @@ Current status:
 
 Known improvement area for the next laboratory pass:
 
-- custom fonts, per-state styles, gradients/shadows/outline, per-side padding, and a fuller asset pipeline (formats beyond RGB565/RGB565A8, asset folder/skeleton export);
+- imported/binary fonts, per-state styles, gradients/shadows/outline, per-side padding, and a fuller asset pipeline (formats beyond RGB565/RGB565A8, asset folder/skeleton export);
 - richer event/action workflows beyond direct screen loads, including user data, callback bodies and action chains;
 - nested layout containers, per-child flex shrink, auto child reflow, flex/grid-like positioning and responsive display profiles;
 - LVGL v8/v9 compatibility matrix;

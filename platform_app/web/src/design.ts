@@ -37,7 +37,7 @@ export type UiFlexAlign = "start" | "center" | "end" | "space_between" | "space_
 export interface UiEventAction { kind: UiEventActionKind; targetScreenId: string; }
 export interface UiEvent { code: UiEventCode; handler: string; action?: UiEventAction; }
 export type UiTextAlign = "left" | "center" | "right";
-export interface UiStyle { bgColor?: string; radius?: number; textColor?: string; textAlign?: UiTextAlign; borderWidth?: number; borderColor?: string; pad?: number; }
+export interface UiStyle { bgColor?: string; radius?: number; textColor?: string; textAlign?: UiTextAlign; borderWidth?: number; borderColor?: string; pad?: number; font?: number; }
 export interface UiLayout { kind: UiLayoutKind; gap?: number; align?: UiFlexAlign; crossAlign?: UiFlexAlign; trackAlign?: UiFlexAlign; }
 export interface UiW { id: number; type: string; x: number; y: number; w: number; h: number; text: string; parentId?: number; assetId?: string; flexGrow?: number; hidden?: boolean; opa?: number; event?: UiEvent; style?: UiStyle; layout?: UiLayout; }
 export type UiAssetFormat = "rgb565" | "rgb565a8";
@@ -49,6 +49,7 @@ export const UI_EVENT_ACTION_KINDS: UiEventActionKind[] = ["screen_load"];
 export const UI_LAYOUT_KINDS: UiLayoutKind[] = ["flex_row", "flex_column"];
 export const UI_FLEX_ALIGNS: UiFlexAlign[] = ["start", "center", "end", "space_between", "space_around", "space_evenly"];
 export const UI_TEXT_ALIGNS: UiTextAlign[] = ["left", "center", "right"];
+export const UI_FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32];
 export const UI_STYLE_SWATCHES = ["#1f6feb", "#2ea043", "#d29922", "#da3633", "#8957e5", "#30363d"];
 
 const DEFAULT_UI_WIDGETS: UiW[] = [
@@ -166,6 +167,8 @@ function normalizeUiStyle(raw: unknown): { style?: UiStyle } {
   const borderColor = hexColor(raw.borderColor); if (borderColor) style.borderColor = borderColor;
   const pad = Number(raw.pad);
   if (Number.isFinite(pad) && pad >= 1) style.pad = Math.round(pad);
+  const font = Number(raw.font);
+  if (Number.isInteger(font) && UI_FONT_SIZES.includes(font)) style.font = font;
   return Object.keys(style).length ? { style } : {};
 }
 

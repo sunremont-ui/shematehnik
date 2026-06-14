@@ -4,6 +4,17 @@ Chronological record of wiki evolution.
 
 ---
 
+## [2026-06-14] lab | Web -- LVGL built-in font size token
+
+- `platform_app/web/src/design.ts`: added `UiStyle.font` and `UI_FONT_SIZES = [12,14,16,18,20,24,28,32]`; normalized to an integer in that set.
+- `platform_app/web/src/codegen.ts`: `lvStyleFor`/`emitStyleAttach` emit `lv_style_set_text_font(&s, &lv_font_montserrat_<n>)` when set; no font keeps slice-17 output.
+- `platform_app/web/src/modules/UiDesignerView.tsx`: style panel gained a `Font` (Montserrat size) select.
+- `platform_app/web/src/codegen.test.ts`, `platform_app/web/src/project.test.ts`: font emitted-when-set/absent checks and `.ucp` v2 round-trip.
+- `platform_app_lab/.../slice-18-font.md`, `wiki/modules/codegen.md`, `wiki/modules/web_frontend.md`, `wiki/roadmap-web.md`, handoff, SKILL/command: lab slice and curated docs promoted; built-in fonts assume the matching `LV_FONT_MONTSERRAT_<n>` is enabled in `lv_conf.h`; imported/binary fonts remain deferred.
+- Checks: `npm.cmd test` -- 17 files / 160 tests passed; `npm.cmd run build` -- OK with the known lazy `ThreeDView` chunk warning; targeted Playwright `CodeGen LVGL` -- 1 passed (via `node node_modules/@playwright/test/cli.js`).
+
+---
+
 ## [2026-06-14] lab | Web -- LVGL extended style tokens (text, border, padding)
 
 - `platform_app/web/src/design.ts`: extended `UiStyle` with `textColor`/`textAlign`/`borderWidth`/`borderColor`/`pad` (+ `UiTextAlign`/`UI_TEXT_ALIGNS`), strictly normalized (valid hex; enum; ints >= 1); shared `hexColor` helper.
