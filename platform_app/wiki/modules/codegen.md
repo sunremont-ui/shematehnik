@@ -76,11 +76,11 @@ Current status:
 
 Known improvement area for the next laboratory pass:
 
-- imported/binary fonts, per-state styles, gradients/shadows/outline, per-side padding, and a fuller asset pipeline (formats beyond RGB565/RGB565A8, asset folder/skeleton export);
+- imported/binary fonts, more per-state styles (only pressed-fill done), gradients/shadows/outline, per-side padding, and a fuller asset pipeline (formats beyond RGB565/RGB565A8, asset folder export);
 - richer event/action workflows beyond direct screen loads, including user data, callback bodies and action chains;
 - nested layout containers, per-child flex shrink, auto child reflow, flex/grid-like positioning and responsive display profiles;
-- LVGL v8/v9 compatibility matrix;
-- project-level export such as CMake/ESP-IDF/PlatformIO skeletons;
+- LVGL v8/v9 compatibility matrix — done (verified deltas + `mode: "v8"\|"v9"` dialect); next is the v9 Gauge→scale model;
+- project-level export such as CMake/ESP-IDF/PlatformIO skeletons (current bundle is `.zip` of `ui.c`/`ui.h`/`README.txt`);
 - additional golden-output fixtures for generated `ui.c/ui.h` as the model expands.
 
 See also: [SquareLine Studio Bridge](../integration/squareline.md) and the LVGL lab roadmap in [Roadmap -- Web](../roadmap-web.md).

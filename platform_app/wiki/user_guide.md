@@ -316,7 +316,7 @@ Four tabs:
 
 **CRC Calculator:** 12 algorithms, compute checksum, generate C lookup table.
 
-**LVGL Export:** 4 screens → export complete LVGL v8 project folder.
+**LVGL Export:** multi-screen `ui.c`/`ui.h` from UI Designer (widgets, styles, flex layout, image assets), v8 or v9 dialect via the `Target` toggle, plus a `Download .zip` bundle (`ui.c`/`ui.h`/`README.txt`).
 
 **Arduino Export:** Arduino / ESP-IDF / PlatformIO complete project generation.
 
