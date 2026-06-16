@@ -64,8 +64,8 @@
 - [x] PrimitivePropsPanel: Pos XYZ + Size XYZ spinboxes
 - [x] STL Export: binary format with proper triangle normals
 - [x] Object list with type icons
-- [ ] ○ Boolean operations (union/subtract) — requires CSG library
-- [ ] ○ STEP export — requires OpenCASCADE
+- [x] Boolean operations (union/subtract) — done in v1.3 via built-in BSP tree (`CsgResultPrimitive`), no external CSG library
+- [x] STEP export — done in v1.3 via built-in `StepWriter` (AP214 triangulated shell), no OpenCASCADE
 
 ## v0.7 — Protocol Designer ✓ DONE
 - [x] SequenceDiagramModule: Mermaid-compatible parser + QPainter renderer
